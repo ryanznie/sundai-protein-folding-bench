@@ -28,7 +28,7 @@ def _handle_timeout(signum, frame):
 
 
 def load_submission_module(path: Path) -> ModuleType:
-    spec = importlib.util.spec_from_file_location("starter_train", path)
+    spec = importlib.util.spec_from_file_location("baseline_submission_train", path)
     if spec is None or spec.loader is None:
         raise RuntimeError(f"failed to import submission module from {path}")
     module = importlib.util.module_from_spec(spec)
@@ -57,7 +57,7 @@ def run_submission(context: RunContext, submission_path: Path, config_path: Path
     )
 
     if not hasattr(module, "main"):
-        raise RuntimeError("starter/train.py must define main(context, config)")
+        raise RuntimeError("baseline_submission/train.py must define main(context, config)")
 
     signal.signal(signal.SIGALRM, _handle_timeout)
     signal.alarm(context.timeout_sec)

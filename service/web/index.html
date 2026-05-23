@@ -574,7 +574,7 @@
             <div class="section-head">
               <div>
                 <h3>Upload Submission</h3>
-                <p>Queue a run by uploading `submission.zip`. The backend reads `starter/config.json` directly from the archive.</p>
+                <p>Queue a run by uploading `submission.zip`. The backend reads `baseline_submission/config.json` directly from the archive.</p>
               </div>
             </div>
             <form id="submission-form">
@@ -585,9 +585,9 @@
                 <input id="team_name" name="team_name" placeholder="Enter team name" autocomplete="off" required />
               </div>
               <div class="field">
-                <label for="starter_file">Starter Zip</label>
-                <input id="starter_file" name="file" type="file" accept=".zip" required />
-                <div class="file-note">Expected upload: `submission.zip` with `starter/train.py` and `starter/config.json`.</div>
+                <label for="baseline_submission_file">Baseline Submission Zip</label>
+                <input id="baseline_submission_file" name="file" type="file" accept=".zip" required />
+                <div class="file-note">Expected upload: `submission.zip` with `baseline_submission/train.py` and `baseline_submission/config.json`.</div>
               </div>
               <div class="actions">
                 <button class="button primary" type="submit">Upload And Queue</button>
@@ -798,7 +798,7 @@
 
       submissionForm.addEventListener("submit", async (event) => {
         event.preventDefault();
-        const fileInput = document.getElementById("starter_file");
+        const fileInput = document.getElementById("baseline_submission_file");
         if (!fileInput.files || fileInput.files.length === 0) {
           setFlash("Choose a submission zip first.", "error");
           return;

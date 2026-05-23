@@ -5,7 +5,7 @@
 Participants upload:
 
 ```text
-starter/
+baseline_submission/
   train.py
   config.json
 ```
@@ -18,8 +18,8 @@ The benchmark system runs:
 python3 benchmark.py \
   --input_dir /input \
   --output_dir /output \
-  --starter /workspace/starter/train.py \
-  --config /workspace/starter/config.json \
+  --starter /workspace/baseline_submission/train.py \
+  --config /workspace/baseline_submission/config.json \
   --timeout_sec 600
 ```
 

@@ -19,7 +19,7 @@ COPY sdk /app/sdk
 COPY tools /app/tools
 COPY service /app/service
 COPY submission /app/submission
-COPY baseline /app/baseline
+COPY baseline_submission /app/baseline_submission
 COPY docs /app/docs
 COPY docker /app/docker
 

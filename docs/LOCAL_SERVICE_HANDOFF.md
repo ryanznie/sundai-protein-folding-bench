@@ -51,7 +51,7 @@ TIMEOUT_SEC=600
 For v1, the benchmark expects a submission payload containing:
 
 ```text
-starter/
+baseline_submission/
   train.py
   config.json
 ```
