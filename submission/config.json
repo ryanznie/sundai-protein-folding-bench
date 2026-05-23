@@ -1,0 +1,5 @@
+{
+  "track": "simplefold_100M_finetune_under_budget",
+  "max_train_steps_hint": 100,
+  "notes": "Contestants may use this file for hyperparameters. The benchmark runner treats it as opaque JSON."
+}

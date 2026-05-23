@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "description": "Placeholder root manifest for the public development bundle.",
+  "splits": {
+    "train": "train/manifest.json",
+    "val": "val/manifest.json",
+    "test": "test/manifest.json"
+  }
+}
