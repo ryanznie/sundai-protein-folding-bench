@@ -23,6 +23,13 @@ python3 benchmark.py \
   --timeout_sec 600
 ```
 
+At execution time, the service overrides these config fields:
+
+- `backend = "torch"`
+- `nsample_per_protein = 1`
+
+MLX is disabled in the hosted submission backend.
+
 ## Input Contract
 
 Mounted read-only at `/input`:
@@ -45,6 +52,8 @@ Each test sample must provide a FASTA path relative to `test/manifest.json`:
 
 `reference_structure_path` is required only for public-dev scoring.
 
+Each FASTA input corresponds to one required prediction output.
+
 ## Output Contract
 
 Required:
@@ -52,6 +61,9 @@ Required:
 ```text
 /output/predictions/<target_id>_sampled_0.cif
 ```
+
+That means one CIF per input FASTA, with `sampled_0` as the only accepted
+sample index.
 
 Optional:
 
@@ -67,7 +79,6 @@ Optional:
 - empty prediction files
 - no parseable CA trace in predicted structure
 - missing public-dev reference structure
-- coverage below threshold
 
 ## Ranking
 

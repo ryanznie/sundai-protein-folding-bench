@@ -30,10 +30,11 @@ docker compose up -d --build api
 docker compose logs -f api
 ```
 
-Or, in the currently available local env:
+Or, in the repo-local environment:
 
 ```bash
-../../Adaptive-ML/constitutional-ai/.venv/bin/python -m uvicorn service.app:app --reload
+uv sync
+uv run uvicorn service.app:app --reload
 ```
 
 ## Worker Flow
@@ -43,7 +44,17 @@ Or, in the currently available local env:
 3. Start `worker/run_submission.py`
 4. Worker runs `docker run --gpus all --network none`
 5. Worker posts results to `/internal/submissions/{id}/complete`
-6. Leaderboard reads best valid submission per team
+6. Leaderboard reads best scored submission per team
+
+## Submission Runtime Rules
+
+The hosted backend enforces:
+
+- `backend = "torch"`
+- `nsample_per_protein = 1`
+- one CIF output per FASTA input at `/output/predictions/<target_id>_sampled_0.cif`
+
+MLX is disabled in the submission backend.
 
 ## Production Constraints
 

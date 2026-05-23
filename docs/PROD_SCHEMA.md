@@ -63,7 +63,8 @@ The API ships a runnable SQL schema at
 
 ## Leaderboard Logic
 
-The API endpoint `/leaderboard` returns each team's best valid submission using:
+The API endpoint `/leaderboard` returns each team's best scored submission using:
 
-1. `mean_tm_score` descending
-2. `total_runtime_sec` ascending
+1. `valid` descending
+2. `mean_tm_score` descending
+3. `total_runtime_sec` ascending

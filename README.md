@@ -18,8 +18,16 @@ The benchmark runner mounts a bundle at `/input` and expects predictions at:
 /output/predictions/<target_id>_sampled_0.cif
 ```
 
-The default submission reads `sequence_fasta_path` from `test/manifest.json`,
-runs SimpleFold, and copies the emitted CIF into that filename contract.
+The submission backend enforces these runtime rules:
+
+- `backend` is forced to `torch`
+- `nsample_per_protein` is forced to `1`
+- each FASTA input in `test/manifest.json` must produce exactly one CIF at
+  `/output/predictions/<target_id>_sampled_0.cif`
+
+The default submission reads `sequence_fasta_path` from `test/manifest.json`
+or uses cached bundle features when available, runs SimpleFold once per target,
+and writes one CIF per FASTA input into that filename contract.
 
 ## Bundle Layout
 
@@ -72,8 +80,8 @@ bash benchmark.sh
 
 ## Public-Dev Scoring
 
-The scorer validates that each prediction exists, is non-empty, contains a CA
-trace, and reaches the requested residue coverage. It then computes:
+The scorer validates that each prediction exists, is non-empty, and contains a
+parseable CA trace. It then computes:
 
 - `tm_score`
 - `lddt`
@@ -99,15 +107,9 @@ See [docs/ARCHITECTURE.md](/Users/ryanznie/Desktop/Important/Work/Sundai/sundai-
 
 ## Local Service Env
 
-This workspace does not currently have `fastapi` installed in the default
-`python3` environment. For local validation here, the compatible interpreter is:
+Use the repo-local `uv` environment:
 
 ```bash
-../../Adaptive-ML/constitutional-ai/.venv/bin/python
-```
-
-Example:
-
-```bash
-../../Adaptive-ML/constitutional-ai/.venv/bin/python -m uvicorn service.app:app --reload
+uv sync
+uv run uvicorn service.app:app --reload
 ```

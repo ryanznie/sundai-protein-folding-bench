@@ -105,7 +105,6 @@
         line-height: 1.6;
         margin: 0;
       }
-
       .nav-item.clickable {
         cursor: pointer;
         transition: border-color 0.2s, background 0.2s;
@@ -490,16 +489,20 @@
           </p>
         </div>
 
-        <div class="rail-nav">
-          <div class="nav-item clickable active" id="nav-leaderboard">
+        <nav class="rail-nav">
+          <a href="/" class="nav-item clickable active">
             <strong>Leaderboard</strong>
             <div class="microcopy">Live rankings & upload</div>
-          </div>
-          <div class="nav-item clickable" id="nav-metrics">
+          </a>
+          <a href="/static/instructions.html" class="nav-item clickable">
+            <strong>Instructions</strong>
+            <div class="microcopy">Submission guide</div>
+          </a>
+          <a href="/static/metrics.html" class="nav-item clickable">
             <strong>Metrics</strong>
             <div class="microcopy">Scoring glossary</div>
-          </div>
-        </div>
+          </a>
+        </nav>
 
         <div class="rail-bottom">
           <div class="card status-card upload">
@@ -656,48 +659,6 @@
             </div>
           </div>
         </section>
-
-        <section class="content-grid" id="metrics-view" hidden>
-          <div class="table-card" style="grid-column: span 2;">
-            <div class="section-head">
-              <div>
-                <h3>Metrics Glossary</h3>
-                <p>Definitions and expected ranges for structure quality metrics.</p>
-              </div>
-            </div>
-            <table>
-              <thead>
-                <tr>
-                  <th>Metric</th>
-                  <th>Range</th>
-                  <th>Description</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td><strong>TM-score</strong></td>
-                  <td>0.0 &rarr; 1.0</td>
-                  <td>Template Modeling score. Higher is better. Scores &gt; 0.5 generally indicate a correct global fold.</td>
-                </tr>
-                <tr>
-                  <td><strong>lDDT</strong></td>
-                  <td>0.0 &rarr; 1.0</td>
-                  <td>Local Distance Difference Test. Measures local structure consistency. Scores &gt; 0.7 indicate high confidence.</td>
-                </tr>
-                <tr>
-                  <td><strong>CA-RMSD</strong></td>
-                  <td>&Aring; (Angstroms)</td>
-                  <td>Root Mean Square Deviation of C-alpha atoms. Lower is better. &lt; 2.0&Aring; is high accuracy.</td>
-                </tr>
-                <tr>
-                  <td><strong>Runtime</strong></td>
-                  <td>Seconds</td>
-                  <td>Total time taken for inference across all targets in the benchmark bundle.</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
       </main>
     </div>
 
@@ -713,25 +674,6 @@
       const submissionCard = document.getElementById("submission-card");
       const loadLatestButton = document.getElementById("load-latest-button");
       const cancelSubmissionButton = document.getElementById("cancel-submission-button");
-
-      const navLeaderboard = document.getElementById("nav-leaderboard");
-      const navMetrics = document.getElementById("nav-metrics");
-      const leaderboardView = document.getElementById("leaderboard-view");
-      const metricsView = document.getElementById("metrics-view");
-
-      navLeaderboard.addEventListener("click", () => {
-        navLeaderboard.classList.add("active");
-        navMetrics.classList.remove("active");
-        leaderboardView.hidden = false;
-        metricsView.hidden = true;
-      });
-
-      navMetrics.addEventListener("click", () => {
-        navMetrics.classList.add("active");
-        navLeaderboard.classList.remove("active");
-        metricsView.hidden = false;
-        leaderboardView.hidden = true;
-      });
 
       let latestSubmissionId = null;
       let latestPollToken = 0;

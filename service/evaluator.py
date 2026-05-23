@@ -91,8 +91,8 @@ def _build_runtime_config(uploaded_config_path: Path, workspace_dir: Path, bundl
     config.setdefault("simplefold_model", "simplefold_100M")
     config.setdefault("num_steps", 50)
     config.setdefault("tau", 0.01)
-    config.setdefault("nsample_per_protein", 1)
-    config.setdefault("backend", "torch")
+    config["nsample_per_protein"] = 1
+    config["backend"] = "torch"
     config["plddt"] = bool(config.get("plddt", False))
     config["simplefold_command"] = [
         str(SIMPLEFOLD_PYTHON),
