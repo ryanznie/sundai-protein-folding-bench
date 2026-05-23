@@ -90,16 +90,13 @@ def run_cached_inference(args: argparse.Namespace) -> None:
     tokenizer, featurizer, processor, flow, sampler = initialize_others(args, device)
 
     split_dir = Path(args.split_dir)
-    for sample in manifest.get("samples", []):
+    samples = manifest.get("samples", [])
+    total = len(samples)
+    for index, sample in enumerate(samples, start=1):
         target_id = sample["target_id"]
         structure_path = resolve_bundle_path(split_dir, sample["processed_structure_path"])
         record_path = resolve_bundle_path(split_dir, sample["processed_record_path"])
         esm_path = resolve_bundle_path(split_dir, sample["esm_feature_path"])
-        print(
-            f"[cached-simplefold] target={target_id} structure={structure_path.name} "
-            f"record={record_path.name} esm={esm_path.name}",
-            flush=True,
-        )
         batch, structure, record = build_batch(
             structure_path=structure_path,
             record_path=record_path,
@@ -137,7 +134,7 @@ def run_cached_inference(args: argparse.Namespace) -> None:
                 output_format=args.output_format,
                 plddts=plddts[i] if plddts is not None else None,
             )
-            print(f"[cached-simplefold] wrote prediction target={target_id} sample={i}", flush=True)
+            print(f"[progress] [{index}/{total}] - completed {target_id}", flush=True)
 
 
 def main() -> None:

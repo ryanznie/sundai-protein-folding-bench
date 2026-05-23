@@ -44,6 +44,10 @@ class SubmissionCancelledError(RuntimeError):
     pass
 
 
+def should_record_submission_progress(line: str) -> bool:
+    return line.startswith("[progress]")
+
+
 def evaluator_assets_ready() -> tuple[bool, list[str]]:
     required = [
         BUNDLE_ROOT / "manifest.json",
@@ -185,7 +189,7 @@ def run_uploaded_submission(
                 terminate_process_tree(process)
             stripped = line.rstrip()
             output_lines.append(line)
-            if submission_logger:
+            if submission_logger and should_record_submission_progress(stripped):
                 submission_logger.info(stripped)
             LOGGER.info("benchmark stream %s", stripped)
         returncode = process.wait()
