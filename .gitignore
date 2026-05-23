@@ -11,3 +11,4 @@ build/
 *.db
 uploads/
 submission.zip
+\n/submission/
