@@ -1,82 +1,54 @@
 # Deployment Plan
 
-## v1 Goal
+## Images
 
-Ship a production system with:
+The repo now includes:
 
-- fixed `SimpleFold-100M`
-- preprocessed / precomputed bundle
-- uploaded `submission.zip`
-- one-GPU execution
-- hidden evaluation split
-- public leaderboard
+1. `docker/api/Dockerfile`
+2. `docker/worker/Dockerfile`
 
-## Recommended Phases
+The worker runtime contract is described in
+[docker/worker/runtime-spec.json](/Users/ryanznie/Desktop/Important/Work/Sundai/sundai-protein-folding-bench/docker/worker/runtime-spec.json).
 
-### Phase 1
+## Local API Bring-Up
 
-Internal runner only.
+```bash
+docker compose up api
+```
 
-- manual submission intake
-- one benchmark image
-- one worker machine
-- static leaderboard updates
+The API container expects these host mounts, already configured in
+[docker-compose.yml](/Users/ryanznie/Desktop/Important/Work/Sundai/sundai-protein-folding-bench/docker-compose.yml):
 
-### Phase 2
+- `/Users/ryanznie/Desktop/Important/Work/Sundai/bundles/public_lb_v1` -> `/opt/sundai/public_lb_v1`
+- `/Users/ryanznie/Desktop/Important/Work/Sundai/ml-simplefold` -> `/opt/sundai/ml-simplefold`
+- a writable Docker volume at `/data` for the SQLite DB, uploads, and per-submission logs
 
-Self-serve benchmark platform.
+Once Docker is running, build and start with:
 
-- submission API
-- DB-backed job queue
-- automated worker execution
-- leaderboard UI
+```bash
+docker compose up -d --build api
+docker compose logs -f api
+```
 
-### Phase 3
+Or, in the currently available local env:
 
-Competition hardening.
+```bash
+../../Adaptive-ML/constitutional-ai/.venv/bin/python -m uvicorn service.app:app --reload
+```
 
-- auth
-- rate limits
-- private leaderboard freeze
-- team management
+## Worker Flow
 
-## Infrastructure
+1. `POST /submissions`
+2. Store uploaded zip in object storage
+3. Start `worker/run_submission.py`
+4. Worker runs `docker run --gpus all --network none`
+5. Worker posts results to `/internal/submissions/{id}/complete`
+6. Leaderboard reads best valid submission per team
 
-### Required
+## Production Constraints
 
-- Postgres
-- Redis or queue equivalent
-- object storage
-- one or more GPU runners
-
-### Suggested Container Images
-
-1. API image
-2. Leaderboard UI image
-3. GPU benchmark worker image
-
-### Worker Image Should Include
-
-- pinned Python
-- pinned PyTorch
-- pinned SimpleFold code snapshot
-- benchmark repo snapshot
-- benchmark bundle loader
-
-## Submission Lifecycle
-
-1. User uploads `submission.zip`
-2. API stores blob and creates `submissions` row
-3. Queue dispatches a worker job
-4. Worker runs benchmark
-5. Worker uploads logs / outputs
-6. Worker writes score summary
-7. Leaderboard refreshes best valid submission
-
-## Security Constraints
-
-- disable egress networking in benchmark container
-- enforce file path boundaries
-- reject oversized uploads
-- pin max output size
-- clear runner temp dirs after each job
+- disable egress in benchmark containers
+- mount `/input` read-only
+- mount `/output` writable
+- enforce GPU count and timeout from runtime spec
+- mount a repo snapshot so the runner and submission contract stay pinned

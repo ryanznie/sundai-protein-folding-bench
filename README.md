@@ -1,148 +1,113 @@
 # Sundai Protein Folding Bench
 
-`sundai-protein-folding-bench` is a Kaggle-style GPU benchmark for
-budget-constrained protein folding fine-tuning.
+`sundai-protein-folding-bench` is a Kaggle-style benchmark scaffold for
+budget-constrained SimpleFold adaptation and inference.
 
-Participants do not submit full repos. They submit a small code artifact,
-centered on `submission/train.py`, which is executed inside a fixed benchmark
-environment.
+The repo now includes four concrete pieces:
 
-## Track
+- a real SimpleFold-backed submission path that calls the public `simplefold` CLI
+- a bundle builder that packages FASTA files, references, and train/val tokenization
+- a structure-based scorer for public-dev bundles
+- a minimal FastAPI + Docker worker stack for production orchestration
 
-The default track is:
+## Runtime Contract
 
-- fixed base model: `SimpleFold-100M`
-- fixed preprocessed train / validation / test bundle
-- fixed precomputed ESM features
-- fixed GPU budget
-- fixed wall-clock timeout
-- fixed output schema
+The benchmark runner mounts a bundle at `/input` and expects predictions at:
 
-The benchmark runner owns:
+```text
+/output/predictions/<target_id>_sampled_0.cif
+```
 
-- environment setup
-- timeout enforcement
-- output validation
-- scoring
+The default submission reads `sequence_fasta_path` from `test/manifest.json`,
+runs SimpleFold, and copies the emitted CIF into that filename contract.
 
-Participants only change:
-
-- `submission/train.py`
-- optionally `submission/config.json`
-
-## Competition Objective
-
-Given:
-
-- a fixed starting checkpoint
-- fixed preprocessed inputs
-- fixed precomputed ESM features
-- a strict runtime budget
-
-produce the best hidden-set structure predictions.
-
-Recommended ranking:
-
-1. `mean_tm_score` descending
-2. `total_runtime_sec` ascending
-
-For public development, the scorer can also expose faster proxy metrics:
-
-- `mean_ca_rmsd`
-- `mean_gdt_ts_like`
-- `coverage`
-
-## What Gets Mounted At Runtime
-
-The benchmark runner assumes a bundle mounted at `/input` with this structure:
+## Bundle Layout
 
 ```text
 /input/
   manifest.json
   train/
     manifest.json
+    fastas/
+    references/
+    processed/
     samples/
-      <target_id>.pt
   val/
     manifest.json
+    fastas/
+    references/
+    processed/
     samples/
-      <target_id>.pt
   test/
     manifest.json
-    samples/
-      <target_id>.pt
+    fastas/
+    references/            # public-dev only
   checkpoints/
     simplefold_100M.ckpt
 ```
 
-Each sample payload may contain:
+`train` and `val` can include tokenized artifacts produced by the public
+SimpleFold preprocessing scripts. `test` must include per-target FASTA files and
+may include reference structures only for public-dev scoring.
 
-- tokenized / cropped model inputs
-- `record` metadata
-- `esm_s` precomputed ESM features
-- optional reference structure path for public-dev scoring
+## Local Flow
 
-## Required Submission Outputs
+1. Prepare a raw dataset with `train/`, `val/`, and `test/` FASTA files.
+2. Build a bundle:
 
-`submission/train.py` must write predictions to:
-
-```text
-/output/predictions/<target_id>_sampled_0.cif
+```bash
+python3 tools/build_simplefold_bundle.py \
+  --raw_dir /path/to/raw_targets \
+  --output_dir data/public_dev \
+  --checkpoint_path /path/to/simplefold_100M.ckpt \
+  --simplefold_repo /path/to/ml-simplefold
 ```
 
-Optional outputs:
-
-- `/output/checkpoint.pt`
-- `/output/metrics.json`
-- `/output/logs/*.log`
-
-## Invalid Submission Conditions
-
-A run is invalid if:
-
-- it exceeds the timeout
-- it crashes
-- it writes malformed outputs
-- it misses one or more required targets
-- it produces empty or unparsable structures
-- residue coverage falls below the configured threshold
-
-## Local Development Flow
-
-1. Create a bundle under `data/public_dev/`.
-2. Implement `submission/train.py`.
-3. Run:
+3. Install the public `simplefold` CLI in the benchmark runtime.
+4. Run:
 
 ```bash
 bash benchmark.sh
 ```
 
-The runner will:
+## Public-Dev Scoring
 
-- execute the submission
-- collect runtime
-- validate outputs
-- score the run
-- write `results.json`
+The scorer validates that each prediction exists, is non-empty, contains a CA
+trace, and reaches the requested residue coverage. It then computes:
 
-## Repository Layout
+- `tm_score`
+- `lddt`
+- `rmsd`
+- `ca_rmsd`
+- `gdt_ts_like`
 
-```text
-sundai-protein-folding-bench/
-  GETTING_STARTED.md
-  README.md
-  benchmark.py
-  benchmark.sh
-  scorer.py
-  sdk/
-    api.py
-  reference/
-    baseline_train.py
-    baseline_config.json
-  submission/
-    train.py
-    config.json
-  data/
-    public_dev/
-      README.md
+The default ranking remains:
+
+1. `mean_tm_score` descending
+2. `runtime_sec` ascending
+
+## Production Pieces
+
+- `service/`: FastAPI submission and leaderboard API with a SQL schema
+- `service/web/`: static frontend for leaderboard and submission registration
+- `worker/`: Docker-based worker callback flow
+- `docker/`: API and worker Dockerfiles plus a runtime spec
+
+See [docs/ARCHITECTURE.md](/Users/ryanznie/Desktop/Important/Work/Sundai/sundai-protein-folding-bench/docs/ARCHITECTURE.md),
+[docs/DEPLOYMENT.md](/Users/ryanznie/Desktop/Important/Work/Sundai/sundai-protein-folding-bench/docs/DEPLOYMENT.md), and
+[docs/SUBMISSION_SPEC.md](/Users/ryanznie/Desktop/Important/Work/Sundai/sundai-protein-folding-bench/docs/SUBMISSION_SPEC.md).
+
+## Local Service Env
+
+This workspace does not currently have `fastapi` installed in the default
+`python3` environment. For local validation here, the compatible interpreter is:
+
+```bash
+../../Adaptive-ML/constitutional-ai/.venv/bin/python
+```
+
+Example:
+
+```bash
+../../Adaptive-ML/constitutional-ai/.venv/bin/python -m uvicorn service.app:app --reload
 ```

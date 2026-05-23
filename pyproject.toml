@@ -1,0 +1,20 @@
+[project]
+name = "sundai-protein-folding-bench"
+version = "0.1.0"
+description = "Benchmark runner, service, and worker stack for the Sundai protein folding bench."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi==0.116.1",
+  "pydantic==2.11.7",
+  "python-multipart==0.0.20",
+  "uvicorn==0.35.0",
+]
+
+[dependency-groups]
+dev = [
+  "httpx>=0.28.0",
+]
+
+[tool.uv]
+package = false

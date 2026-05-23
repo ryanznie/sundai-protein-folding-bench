@@ -1,63 +1,49 @@
 # Getting Started
 
-## What You Are Allowed To Edit
+## What You Edit
 
-Edit only:
+Participants still only need:
 
 - `submission/train.py`
 - `submission/config.json`
 
-Do not modify:
+Benchmark owners additionally use:
 
-- `benchmark.py`
-- `benchmark.sh`
-- `scorer.py`
-- `sdk/`
-- benchmark data layout
+- `tools/build_simplefold_bundle.py`
+- `service/`
+- `worker/`
+- `docker/`
 
-## Runtime Contract
+## Build A Public-Dev Bundle
 
-The benchmark system runs:
-
-```bash
-bash benchmark.sh
-```
-
-`benchmark.sh` invokes `benchmark.py`, which:
-
-- loads the fixed bundle
-- calls your submission entrypoint
-- enforces a timeout
-- validates your outputs
-- scores your predictions
-
-## What Your Code Must Do
-
-Your code should:
-
-1. load the fixed starting checkpoint
-2. load training and test samples from the mounted bundle
-3. optionally fine-tune for the allotted time
-4. produce one prediction per hidden target
-5. write predictions to `/output/predictions/`
-
-Required prediction filename pattern:
+Prepare raw files like:
 
 ```text
-<target_id>_sampled_0.cif
+raw_targets/
+  train/
+    target_a.fasta
+    target_a.cif
+  val/
+    target_b.fasta
+    target_b.cif
+  test/
+    target_c.fasta
+    target_c.cif
 ```
 
-## Default Assumptions
+Then run:
 
-This benchmark assumes:
+```bash
+python3 tools/build_simplefold_bundle.py \
+  --raw_dir /path/to/raw_targets \
+  --output_dir data/public_dev \
+  --checkpoint_path /path/to/simplefold_100M.ckpt \
+  --simplefold_repo /path/to/ml-simplefold
+```
 
-- preprocessing is already done
-- ESM features are already computed
-- network access is disabled
-- runtime is GPU-backed
-- total wall-clock time is fixed by the benchmark harness
+For hidden test packaging, add `--exclude_public_test_references`.
 
-## Local Run
+## Local Benchmark Run
 
 Set optional overrides:
 
@@ -67,32 +53,20 @@ export OUTPUT_DIR=$(pwd)/output
 export TIMEOUT_SEC=600
 ```
 
-Then run:
+Run:
 
 ```bash
 bash benchmark.sh
 ```
 
-## Expected Outputs
+## Required Test Manifest Fields
 
-After a valid run, you should see:
+Each test sample should include:
 
-- `output/predictions/*.cif`
-- `output/results.json`
-- `output/summary.json`
+- `target_id`
+- `sequence_fasta_path`
+- `reference_structure_path` for public-dev only
+- optional `min_coverage`
 
-## Recommended First Strategy
-
-Start with:
-
-- no fine-tuning
-- load base checkpoint
-- run plain inference
-
-Then iterate on:
-
-- lightweight fine-tuning
-- parameter freezing
-- LoRA / adapters
-- step budgeting
-- inference scheduling
+The bundled `submission/train.py` reads `sequence_fasta_path` and runs the
+SimpleFold CLI directly.

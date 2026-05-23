@@ -1,0 +1,7 @@
+.git
+.venv
+__pycache__
+service/uploads
+service/logs
+service/leaderboard.db
+output

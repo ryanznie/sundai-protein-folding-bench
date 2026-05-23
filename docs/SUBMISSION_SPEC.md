@@ -2,7 +2,7 @@
 
 ## Upload Format
 
-Participants upload a zip file containing:
+Participants upload:
 
 ```text
 submission/
@@ -10,20 +10,12 @@ submission/
   config.json
 ```
 
-No other files are required for v1.
-
 ## Entry Point
 
-The benchmark system will run:
+The benchmark system runs:
 
 ```bash
-bash benchmark.sh
-```
-
-which calls:
-
-```bash
-python benchmark.py \
+python3 benchmark.py \
   --input_dir /input \
   --output_dir /output \
   --submission /workspace/submission/train.py \
@@ -35,13 +27,23 @@ python benchmark.py \
 
 Mounted read-only at `/input`:
 
-- `/input/train`
-- `/input/val`
-- `/input/test`
+- `/input/train/manifest.json`
+- `/input/val/manifest.json`
+- `/input/test/manifest.json`
 - `/input/checkpoints/simplefold_100M.ckpt`
 
-Samples are expected to already include preprocessed tensors and precomputed
-ESM features.
+Each test sample must provide a FASTA path relative to `test/manifest.json`:
+
+```json
+{
+  "target_id": "example_target",
+  "sequence_fasta_path": "fastas/example_target.fasta",
+  "reference_structure_path": "references/example_target.cif",
+  "min_coverage": 0.95
+}
+```
+
+`reference_structure_path` is required only for public-dev scoring.
 
 ## Output Contract
 
@@ -57,25 +59,17 @@ Optional:
 - `/output/metrics.json`
 - `/output/logs/*.log`
 
-## Invalid Submission Conditions
+## Invalid Conditions
 
 - timeout exceeded
 - crash or nonzero failure
 - missing prediction files
 - empty prediction files
-- output parse failure
+- no parseable CA trace in predicted structure
+- missing public-dev reference structure
 - coverage below threshold
 
 ## Ranking
 
-Recommended v1 final ranking:
-
 1. `mean_tm_score` descending
-2. `total_runtime_sec` ascending
-
-Recommended public metrics:
-
-- `mean_ca_rmsd`
-- `mean_gdt_ts_like`
-- `coverage`
-- `total_runtime_sec`
+2. `runtime_sec` ascending

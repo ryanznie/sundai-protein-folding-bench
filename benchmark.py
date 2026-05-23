@@ -47,8 +47,14 @@ def validate_output_contract(context: RunContext) -> dict:
 
 
 def run_submission(context: RunContext, submission_path: Path, config_path: Path) -> dict:
+    print(f"[benchmark] loading submission module from {submission_path}", flush=True)
     module = load_submission_module(submission_path)
     config = load_json(config_path) if config_path.exists() else {}
+    print(
+        f"[benchmark] submission loaded track={config.get('track')} model={config.get('simplefold_model')} "
+        f"backend={config.get('backend')} num_steps={config.get('num_steps')}",
+        flush=True,
+    )
 
     if not hasattr(module, "main"):
         raise RuntimeError("submission/train.py must define main(context, config)")
@@ -57,10 +63,12 @@ def run_submission(context: RunContext, submission_path: Path, config_path: Path
     signal.alarm(context.timeout_sec)
     started = time.perf_counter()
     try:
+        print(f"[benchmark] starting submission main timeout_sec={context.timeout_sec}", flush=True)
         module.main(context, config)
     finally:
         signal.alarm(0)
     ended = time.perf_counter()
+    print(f"[benchmark] submission main finished runtime_sec={ended - started:.2f}", flush=True)
     return {"runtime_sec": ended - started}
 
 
@@ -95,13 +103,21 @@ def main() -> None:
     try:
         timing = run_submission(context, Path(args.submission), Path(args.config))
         outcome["runtime_sec"] = timing["runtime_sec"]
+        print("[benchmark] validating output contract", flush=True)
         outcome["validation"] = validate_output_contract(context)
+        print(f"[benchmark] validation result valid={outcome['validation']['valid']}", flush=True)
         if not outcome["validation"]["valid"]:
             outcome["error"] = "missing required prediction outputs"
         else:
+            print("[benchmark] starting scoring", flush=True)
             outcome["scoring"] = score_split(
                 context.bundle.test_dir / "manifest.json",
                 context.output_dir / "predictions",
+            )
+            print(
+                f"[benchmark] scoring finished valid={outcome['scoring']['valid']} "
+                f"targets={len(outcome['scoring']['targets'])}",
+                flush=True,
             )
             outcome["valid"] = bool(outcome["scoring"]["valid"])
     except TimeoutExpired as exc:

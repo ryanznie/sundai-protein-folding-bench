@@ -1,6 +1,9 @@
 # Production Schema
 
-## Suggested Tables
+The API ships a runnable SQL schema at
+[service/schema.sql](/Users/ryanznie/Desktop/Important/Work/Sundai/sundai-protein-folding-bench/service/schema.sql).
+
+## Tables
 
 ### teams
 
@@ -23,6 +26,7 @@
 - `created_by_user_id`
 - `status`
 - `storage_key`
+- `runtime_spec`
 - `runtime_sec`
 - `valid`
 - `invalid_reason`
@@ -31,7 +35,6 @@
 
 ### scores
 
-- `id`
 - `submission_id`
 - `mean_tm_score`
 - `mean_lddt`
@@ -40,6 +43,7 @@
 - `mean_gdt_ts_like`
 - `min_coverage`
 - `total_runtime_sec`
+- `raw_summary_json`
 
 ### submission_targets
 
@@ -53,15 +57,13 @@
 - `ca_rmsd`
 - `gdt_ts_like`
 - `coverage`
+- `invalid_reason`
+- `matched_residues`
+- `reference_residues`
 
-## Best Submission Logic
+## Leaderboard Logic
 
-For leaderboard display:
-
-- choose each team's best valid submission
-- order by ranking formula
-
-Recommended formula:
+The API endpoint `/leaderboard` returns each team's best valid submission using:
 
 1. `mean_tm_score` descending
 2. `total_runtime_sec` ascending

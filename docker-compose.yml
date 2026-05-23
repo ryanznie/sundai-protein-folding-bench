@@ -1,0 +1,38 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: docker/api/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      SUNDAI_DB_PATH: /data/leaderboard.db
+      SUNDAI_UPLOAD_ROOT: /data/uploads
+      SUNDAI_LOG_ROOT: /data/logs
+      SUNDAI_BUNDLE_ROOT: /opt/sundai/public_lb_v1
+      SUNDAI_SIMPLEFOLD_ROOT: /opt/sundai/ml-simplefold
+      SUNDAI_SIMPLEFOLD_PYTHON: /app/.venv/bin/python
+      SUNDAI_LOG_LEVEL: INFO
+    volumes:
+      - ./service:/app/service
+      - ./sdk:/app/sdk
+      - ./tools:/app/tools
+      - ./submission:/app/submission
+      - ./reference:/app/reference
+      - ./benchmark.py:/app/benchmark.py
+      - ./scorer.py:/app/scorer.py
+      - sundai-api-data:/data
+      - /Users/ryanznie/Desktop/Important/Work/Sundai/bundles/public_lb_v1:/opt/sundai/public_lb_v1:ro
+      - /Users/ryanznie/Desktop/Important/Work/Sundai/ml-simplefold:/opt/sundai/ml-simplefold:ro
+
+  worker:
+    build:
+      context: .
+      dockerfile: docker/worker/Dockerfile
+    profiles: ["worker"]
+    volumes:
+      - .:/workspace
+      - /var/run/docker.sock:/var/run/docker.sock
+
+volumes:
+  sundai-api-data:

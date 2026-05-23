@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from pathlib import Path
+
+from sdk.structures import compute_alignment_metrics, load_ca_trace
 
 
 @dataclass
@@ -15,6 +17,8 @@ class TargetScore:
     rmsd: float | None = None
     ca_rmsd: float | None = None
     gdt_ts_like: float | None = None
+    matched_residues: int | None = None
+    reference_residues: int | None = None
     invalid_reason: str | None = None
 
 
@@ -31,34 +35,77 @@ def validate_prediction_exists(prediction_path: Path) -> tuple[bool, str | None]
     return True, None
 
 
-def score_split(test_manifest_path: Path, predictions_dir: Path) -> dict:
-    manifest = load_manifest(test_manifest_path)
-    scores: list[TargetScore] = []
-
-    for sample in manifest.get("samples", []):
-        target_id = sample["target_id"]
-        prediction_path = predictions_dir / f"{target_id}_sampled_0.cif"
-        valid, invalid_reason = validate_prediction_exists(prediction_path)
-
-        score = TargetScore(
+def score_target(sample: dict, predictions_dir: Path, split_dir: Path) -> TargetScore:
+    target_id = sample["target_id"]
+    prediction_path = predictions_dir / f"{target_id}_sampled_0.cif"
+    valid, invalid_reason = validate_prediction_exists(prediction_path)
+    if not valid:
+        return TargetScore(
             target_id=target_id,
-            valid=valid,
-            coverage=1.0 if valid else 0.0,
+            valid=False,
+            coverage=0.0,
             invalid_reason=invalid_reason,
         )
 
-        # Placeholder metric path:
-        # If the bundle includes precomputed public metrics or reference paths,
-        # the benchmark owner can replace this block with real scoring.
-        if valid and "public_metrics" in sample:
-            metrics = sample["public_metrics"]
-            score.tm_score = metrics.get("tm_score")
-            score.lddt = metrics.get("lddt")
-            score.rmsd = metrics.get("rmsd")
-            score.ca_rmsd = metrics.get("ca_rmsd")
-            score.gdt_ts_like = metrics.get("gdt_ts_like")
+    reference_field = sample.get("reference_structure_path")
+    if not reference_field:
+        return TargetScore(
+            target_id=target_id,
+            valid=False,
+            coverage=0.0,
+            invalid_reason="missing_reference_structure",
+        )
 
-        scores.append(score)
+    reference_path = Path(reference_field)
+    if not reference_path.is_absolute():
+        reference_path = split_dir / reference_field
+
+    try:
+        reference_trace = load_ca_trace(reference_path)
+        prediction_trace = load_ca_trace(prediction_path)
+        metrics = compute_alignment_metrics(reference_trace, prediction_trace)
+    except FileNotFoundError:
+        return TargetScore(
+            target_id=target_id,
+            valid=False,
+            coverage=0.0,
+            invalid_reason="missing_reference_structure",
+        )
+    except ValueError as exc:
+        return TargetScore(
+            target_id=target_id,
+            valid=False,
+            coverage=0.0,
+            invalid_reason=f"parse_error:{exc}",
+        )
+
+    min_coverage = float(sample.get("min_coverage", 0.95))
+    score = TargetScore(
+        target_id=target_id,
+        valid=True,
+        coverage=metrics.coverage,
+        tm_score=metrics.tm_score,
+        lddt=metrics.lddt,
+        rmsd=metrics.rmsd,
+        ca_rmsd=metrics.ca_rmsd,
+        gdt_ts_like=metrics.gdt_ts_like,
+        matched_residues=metrics.matched_residues,
+        reference_residues=metrics.reference_residues,
+        invalid_reason=None,
+    )
+    return score
+
+
+def score_split(test_manifest_path: Path, predictions_dir: Path) -> dict:
+    manifest = load_manifest(test_manifest_path)
+    split_dir = test_manifest_path.parent
+    samples = manifest.get("samples", [])
+    total_targets = len(samples)
+    scores = []
+    for i, sample in enumerate(samples, 1):
+        target_id = sample.get("target_id", "unknown")
+        print(f"[benchmark] scoring target [{i}/{total_targets}] {target_id}", flush=True)
+        scores.append(score_target(sample, predictions_dir, split_dir))
 
     valid_scores = [s for s in scores if s.valid]
     invalid_scores = [s for s in scores if not s.valid]
@@ -80,6 +127,11 @@ def score_split(test_manifest_path: Path, predictions_dir: Path) -> dict:
             "num_targets": len(scores),
             "num_valid_targets": len(valid_scores),
             "num_invalid_targets": len(invalid_scores),
+            "num_below_coverage_threshold": sum(
+                1
+                for sample, score in zip(manifest.get("samples", []), scores)
+                if score.coverage < float(sample.get("min_coverage", 0.95))
+            ),
             "min_coverage": min((s.coverage for s in scores), default=0.0),
             "mean_tm_score": mean_or_none("tm_score"),
             "mean_lddt": mean_or_none("lddt"),

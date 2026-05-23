@@ -1,4 +1,10 @@
 {
   "mode": "baseline",
-  "description": "Reference no-op baseline that only copies bundled public prediction stubs when available."
+  "simplefold_model": "simplefold_100M",
+  "backend": "torch",
+  "num_steps": 50,
+  "tau": 0.01,
+  "nsample_per_protein": 1,
+  "plddt": false,
+  "description": "Reference baseline that runs the public SimpleFold CLI on each test FASTA."
 }

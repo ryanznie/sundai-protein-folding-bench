@@ -8,3 +8,6 @@ output/
 tmp/
 dist/
 build/
+*.db
+uploads/
+submission.zip

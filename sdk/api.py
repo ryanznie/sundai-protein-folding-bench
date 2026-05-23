@@ -16,6 +16,26 @@ class BundlePaths:
     checkpoints_dir: Path
     manifest_path: Path
 
+    def split_manifest(self, split_dir: Path) -> dict[str, Any]:
+        return load_json(split_dir / "manifest.json")
+
+    def train_manifest(self) -> dict[str, Any]:
+        return self.split_manifest(self.train_dir)
+
+    def val_manifest(self) -> dict[str, Any]:
+        return self.split_manifest(self.val_dir)
+
+    def test_manifest(self) -> dict[str, Any]:
+        return self.split_manifest(self.test_dir)
+
+    def resolve_path(self, split_dir: Path, value: str | None) -> Path | None:
+        if value is None:
+            return None
+        path = Path(value)
+        if path.is_absolute():
+            return path
+        return split_dir / value
+
 
 @dataclass
 class RunContext:

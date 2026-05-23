@@ -1,8 +1,45 @@
 # Public Dev Bundle
 
-This directory is a placeholder for the public development bundle.
+This is the curated v1 `dev-fast` split.
 
-Expected layout:
+Included targets:
+
+- `8cny_A` - 182 aa
+- `8i85_A` - 280 aa
+
+Contents today:
+
+```text
+public_dev/
+  fasta/
+    8cny_A.fasta
+    8i85_A.fasta
+  references/
+    8cny_A.cif
+    8i85_A.cif
+  manifest.json
+  train/
+    manifest.json
+  val/
+    manifest.json
+  test/
+    manifest.json
+```
+
+Why these two:
+
+- short enough for a tight feedback loop
+- both are monomer examples already bundled with the local SimpleFold repo
+- enough to validate scoring, IO, and runtime behavior without making iteration slow
+
+What is still missing for production:
+
+- preprocessed model tensors
+- cached `esm_s` features
+- a larger public leaderboard split
+- a hidden private-final split
+
+Suggested production bundle format:
 
 ```text
 public_dev/
@@ -22,34 +59,3 @@ public_dev/
   checkpoints/
     simplefold_100M.ckpt
 ```
-
-Recommended sample payload fields:
-
-- `target_id`
-- `record`
-- tokenized / cropped model tensors
-- `esm_s`
-- optional `reference_path` for public scoring
-
-Recommended test manifest fields:
-
-```json
-{
-  "samples": [
-    {
-      "target_id": "example_target",
-      "public_prediction_stub": "/abs/path/to/example_target_sampled_0.cif",
-      "public_metrics": {
-        "tm_score": 0.42,
-        "lddt": 0.56,
-        "rmsd": 8.3,
-        "ca_rmsd": 6.9,
-        "gdt_ts_like": 0.18
-      }
-    }
-  ]
-}
-```
-
-In production, benchmark owners should replace `public_prediction_stub` with
-real hidden-data scoring and provide the actual preprocessed feature bundle.

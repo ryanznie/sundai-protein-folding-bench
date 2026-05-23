@@ -1,103 +1,40 @@
 # Architecture
 
-## Overview
-
-`sundai-protein-folding-bench` is split into two layers:
-
-1. Public benchmark repo
-2. Private production scoring service
+## Public Repo
 
 The public repo defines:
 
-- submission contract
-- benchmark runner
-- local validation
-- starter submission template
-- public development bundle format
-
-The private service owns:
-
-- submission upload API
-- queueing
-- GPU job execution
-- hidden-set scoring
-- leaderboard state
-
-## Public Repo Contract
-
-Participants submit only:
-
-- `submission/train.py`
-- `submission/config.json`
-
-The fixed benchmark system owns:
-
-- data bundle
-- runtime environment
-- timeout rules
-- scoring logic
+- bundle builder and bundle schema
+- benchmark runner and timeout enforcement
+- structure-based public-dev scoring
+- starter submission contract
 
 ## Production Services
 
 ### API
 
-Responsibilities:
-
-- accept `submission.zip`
-- create submission jobs
-- expose status and leaderboard endpoints
-
-Suggested stack:
-
-- FastAPI
-- Postgres
+[service/app.py](/Users/ryanznie/Desktop/Important/Work/Sundai/sundai-protein-folding-bench/service/app.py)
+accepts submissions, records status, stores scores, exposes a leaderboard, and
+serves the static frontend from [service/web/index.html](/Users/ryanznie/Desktop/Important/Work/Sundai/sundai-protein-folding-bench/service/web/index.html).
 
 ### Worker
 
-Responsibilities:
+[worker/run_submission.py](/Users/ryanznie/Desktop/Important/Work/Sundai/sundai-protein-folding-bench/worker/run_submission.py)
+unpacks `submission.zip`, overlays it into the benchmark repo snapshot, runs the
+benchmark container, and reports results back to the API.
 
-- unpack submission
-- inject into fixed benchmark image
-- run `bash benchmark.sh`
-- collect outputs and logs
-- write scores back to Postgres / object storage
+### Runtime
 
-Suggested stack:
+The benchmark container should contain:
 
-- Docker
-- NVIDIA container runtime
-- Redis or Postgres-backed queue
+- pinned Python
+- pinned SimpleFold install
+- pinned benchmark repo snapshot
+- access to the benchmark bundle
 
-### Leaderboard UI
+The worker wrapper enforces:
 
-Responsibilities:
-
-- show rankings
-- show submission history
-- link logs and summaries
-
-Suggested stack:
-
-- Next.js or another simple web frontend
-
-## Runtime Sandbox
-
-Recommended runtime guarantees:
-
-- one fixed GPU SKU
-- fixed CUDA / PyTorch image
-- no internet access
+- `--gpus all`
+- `--network none`
 - read-only `/input`
-- writable `/output` and `/tmp`
-- hard timeout
-
-## Data Flow
-
-1. Benchmark owner preprocesses FASTA once.
-2. Benchmark owner precomputes ESM features once.
-3. Bundle is packaged into fixed train / val / test splits.
-4. Submission runs train/fine-tune + inference only.
-5. Scorer validates outputs and computes metrics.
-
-This keeps the challenge focused on adaptation and inference strategy instead of
-repeated preprocessing cost.
+- writable `/output`
