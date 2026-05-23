@@ -57,7 +57,7 @@ def run_submission(context: RunContext, submission_path: Path, config_path: Path
     )
 
     if not hasattr(module, "main"):
-        raise RuntimeError("baseline_submission/train.py must define main(context, config)")
+        raise RuntimeError("submission/train.py must define main(context, config)")
 
     signal.signal(signal.SIGALRM, _handle_timeout)
     signal.alarm(context.timeout_sec)

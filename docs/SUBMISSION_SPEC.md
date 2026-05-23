@@ -13,16 +13,29 @@ baseline_submission/
 ## Entry Point
 
 The benchmark system runs:
+## Submission Bundle
+
+To submit to the leaderboard, create a `.zip` file with the following structure:
+
+```text
+submission.zip
+└── submission/
+    ├── train.py
+    └── config.json
+```
+
+**The folder inside the zip must be named `submission/`.**
+
+The CLI runner uses the following parameters internally:
 
 ```bash
 python3 benchmark.py \
   --input_dir /input \
   --output_dir /output \
-  --starter /workspace/baseline_submission/train.py \
-  --config /workspace/baseline_submission/config.json \
+  --submission /workspace/submission/train.py \
+  --config /workspace/submission/config.json \
   --timeout_sec 600
 ```
-
 At execution time, the service overrides these config fields:
 
 - `backend = "torch"`

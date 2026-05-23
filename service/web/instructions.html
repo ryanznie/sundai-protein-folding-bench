@@ -303,7 +303,7 @@
             <div class="instruction-content">
               <ul>
                 <li>
-                  <strong>Sampling Limit:</strong> Your <code>baseline_submission/config.json</code> must set <code>"nsample_per_protein": 1</code>. Submissions with multiple samples per target will be rejected or truncated.
+                  <strong>Sampling Limit:</strong> Your <code>submission/config.json</code> must set <code>"nsample_per_protein": 1</code>. Submissions with multiple samples per target will be rejected or truncated.
                 </li>
                 <li>
                   <strong>Output Format:</strong> For every input <code>.fasta</code> in the evaluation bundle, your submission must produce exactly <strong>one</strong> CIF file at <code>/output/predictions/&lt;target_id&gt;_sampled_0.cif</code>.
@@ -312,7 +312,7 @@
                   <strong>Local Dev vs. Production:</strong> While local development may use <code>MLX</code> for Apple Silicon, <strong>MLX is disabled</strong> during production benchmark runs. Ensure your <code>train.py</code> defaults to <code>torch</code> or handles backend selection gracefully.
                 </li>
                 <li>
-                  <strong>Bundle Structure:</strong> The uploaded <code>.zip</code> must contain a <code>baseline_submission/</code> folder with at least <code>train.py</code> and <code>config.json</code>.
+                  <strong>Bundle Structure:</strong> The uploaded <code>.zip</code> must contain a <code>submission/</code> folder with at least <code>train.py</code> and <code>config.json</code>. (The repository's <code>baseline_submission/</code> folder is just a reference; the submitted folder must be named <code>submission/</code>).
                 </li>
               </ul>
 

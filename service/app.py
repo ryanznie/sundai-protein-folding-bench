@@ -25,6 +25,7 @@ from service.evaluator import (
     terminate_process_tree,
 )
 from service.logging_utils import (
+    build_submission_file_handler,
     build_submission_logger,
     configure_logging,
     env_path,
@@ -87,7 +88,7 @@ def init_db() -> None:
 def load_submission_config_from_zip(storage_path: Path) -> dict | None:
     try:
         with ZipFile(storage_path) as archive:
-            with archive.open("baseline_submission/config.json") as handle:
+            with archive.open("submission/config.json") as handle:
                 return json.loads(handle.read().decode("utf-8"))
     except Exception as exc:  # noqa: BLE001
         LOGGER.warning("failed to read submission config from zip path=%s error=%s", storage_path, exc)
@@ -244,6 +245,9 @@ def persist_completion(submission_id: str, payload: SubmissionResult) -> None:
 
 def run_submission_job(submission_id: str, upload_path: Path) -> None:
     submission_logger, log_path = build_submission_logger(LOG_ROOT, submission_id)
+    root_logger = logging.getLogger()
+    root_file_handler = build_submission_file_handler(log_path)
+    root_logger.addHandler(root_file_handler)
     with JOB_STATE_LOCK:
         cancel_event = JOB_CANCEL_EVENTS.setdefault(submission_id, threading.Event())
 
@@ -309,6 +313,8 @@ def run_submission_job(submission_id: str, upload_path: Path) -> None:
             invalid_reason=f"{type(exc).__name__}: {exc}",
         )
     finally:
+        root_logger.removeHandler(root_file_handler)
+        root_file_handler.close()
         with JOB_STATE_LOCK:
             JOB_PROCESSES.pop(submission_id, None)
             JOB_CANCEL_EVENTS.pop(submission_id, None)
@@ -417,10 +423,10 @@ async def upload_submission(
     await file.close()
     try:
         with ZipFile(storage_path) as archive:
-            if "baseline_submission/train.py" not in archive.namelist():
+            if "submission/train.py" not in archive.namelist():
                 raise HTTPException(
                     status_code=400,
-                    detail="zip must contain baseline_submission/train.py",
+                    detail="zip must contain submission/train.py",
                 )
     except BadZipFile as exc:
         storage_path.unlink(missing_ok=True)

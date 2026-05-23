@@ -2,10 +2,28 @@
 
 ## What You Edit
 
-Participants still only need:
+A minimal submission must include:
 
-- `baseline_submission/train.py`
-- `baseline_submission/config.json`
+- `submission/train.py`
+- `submission/config.json`
+
+The repository provides a reference implementation in `baseline_submission/`. Participants should copy these into a local `submission/` folder (which is gitignored) and modify them.
+
+The reference `baseline_submission/train.py` reads `sequence_fasta_path` and runs the
+SimpleFold CLI for each target.
+
+### Submission Zip Structure
+
+To submit to the leaderboard, create a `.zip` file with the following structure:
+
+```text
+submission.zip
+└── submission/
+    ├── train.py
+    └── config.json
+```
+
+**Note:** The backend strictly expects the internal folder to be named `submission/`, even if your local work is in another folder.
 
 Benchmark owners additionally use:
 

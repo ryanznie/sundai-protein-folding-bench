@@ -38,5 +38,12 @@ def build_submission_logger(log_root: Path, submission_id: str) -> tuple[logging
     return logger, log_path
 
 
+def build_submission_file_handler(log_path: Path) -> logging.FileHandler:
+    file_handler = logging.FileHandler(log_path)
+    file_handler.setLevel(logging.INFO)
+    file_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s"))
+    return file_handler
+
+
 def env_path(name: str, default: str) -> Path:
     return Path(os.environ.get(name, default)).expanduser().resolve()
