@@ -25,7 +25,6 @@ from service.evaluator import (
     terminate_process_tree,
 )
 from service.logging_utils import (
-    build_submission_file_handler,
     build_submission_logger,
     configure_logging,
     env_path,
@@ -245,9 +244,6 @@ def persist_completion(submission_id: str, payload: SubmissionResult) -> None:
 
 def run_submission_job(submission_id: str, upload_path: Path) -> None:
     submission_logger, log_path = build_submission_logger(LOG_ROOT, submission_id)
-    root_logger = logging.getLogger()
-    root_file_handler = build_submission_file_handler(log_path)
-    root_logger.addHandler(root_file_handler)
     with JOB_STATE_LOCK:
         cancel_event = JOB_CANCEL_EVENTS.setdefault(submission_id, threading.Event())
 
@@ -313,8 +309,6 @@ def run_submission_job(submission_id: str, upload_path: Path) -> None:
             invalid_reason=f"{type(exc).__name__}: {exc}",
         )
     finally:
-        root_logger.removeHandler(root_file_handler)
-        root_file_handler.close()
         with JOB_STATE_LOCK:
             JOB_PROCESSES.pop(submission_id, None)
             JOB_CANCEL_EVENTS.pop(submission_id, None)
