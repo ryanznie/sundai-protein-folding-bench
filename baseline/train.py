@@ -15,14 +15,14 @@ def main(context, config) -> None:
     target_ids = [sample["target_id"] for sample in samples]
     fasta_root = context.bundle.test_dir / "fastas"
     if can_use_cached_bundle_features(samples):
-        print("[reference] bundle exposes cached ESM + processed structures; using cached inference path", flush=True)
+        print("[baseline] bundle exposes cached ESM + processed structures; using cached inference path", flush=True)
         run_simplefold_cached_bundle_inference(
             split_dir=context.bundle.test_dir,
             samples=samples,
             output_dir=context.output_dir,
             config=config,
         )
-        print("[reference] cached bundle inference finished and predictions copied", flush=True)
+        print("[baseline] cached bundle inference finished and predictions copied", flush=True)
         return
     if not fasta_root.exists():
         raise RuntimeError("test bundle is missing test/fastas for batch inference")

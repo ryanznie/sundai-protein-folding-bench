@@ -73,9 +73,9 @@ def _extract_submission(upload_path: Path, workspace_dir: Path) -> tuple[Path, P
     submission_path = extract_dir / "submission" / "train.py"
     config_path = extract_dir / "submission" / "config.json"
     if not submission_path.exists():
-        raise FileNotFoundError("uploaded zip must contain submission/train.py")
+        raise FileNotFoundError("uploaded zip must contain starter/train.py")
     if not config_path.exists():
-        raise FileNotFoundError("uploaded zip must contain submission/config.json")
+        raise FileNotFoundError("uploaded zip must contain starter/config.json")
     LOGGER.info("submission extracted upload_path=%s workspace_dir=%s", upload_path, workspace_dir)
     return submission_path, config_path
 

@@ -5,8 +5,8 @@ budget-constrained SimpleFold adaptation and inference.
 
 The repo now includes four concrete pieces:
 
-- a real SimpleFold-backed submission path that calls the public `simplefold` CLI
-- a bundle builder that packages FASTA files, references, and train/val tokenization
+- a real SimpleFold-backed starter path that calls the public `simplefold` CLI
+- a bundle builder that packages FASTA files, baselines, and train/val tokenization
 - a structure-based scorer for public-dev bundles
 - a minimal FastAPI + Docker worker stack for production orchestration
 
@@ -18,14 +18,14 @@ The benchmark runner mounts a bundle at `/input` and expects predictions at:
 /output/predictions/<target_id>_sampled_0.cif
 ```
 
-The submission backend enforces these runtime rules:
+The starter backend enforces these runtime rules:
 
 - `backend` is forced to `torch`
 - `nsample_per_protein` is forced to `1`
 - each FASTA input in `test/manifest.json` must produce exactly one CIF at
   `/output/predictions/<target_id>_sampled_0.cif`
 
-The default submission reads `sequence_fasta_path` from `test/manifest.json`
+The default starter reads `sequence_fasta_path` from `test/manifest.json`
 or uses cached bundle features when available, runs SimpleFold once per target,
 and writes one CIF per FASTA input into that filename contract.
 
@@ -37,26 +37,26 @@ and writes one CIF per FASTA input into that filename contract.
   train/
     manifest.json
     fastas/
-    references/
+    baselines/
     processed/
     samples/
   val/
     manifest.json
     fastas/
-    references/
+    baselines/
     processed/
     samples/
   test/
     manifest.json
     fastas/
-    references/            # public-dev only
+    baselines/            # public-dev only
   checkpoints/
     simplefold_100M.ckpt
 ```
 
 `train` and `val` can include tokenized artifacts produced by the public
 SimpleFold preprocessing scripts. `test` must include per-target FASTA files and
-may include reference structures only for public-dev scoring.
+may include baseline structures only for public-dev scoring.
 
 ## Local Flow
 
@@ -96,8 +96,8 @@ The default ranking remains:
 
 ## Production Pieces
 
-- `service/`: FastAPI submission and leaderboard API with a SQL schema
-- `service/web/`: static frontend for leaderboard and submission registration
+- `service/`: FastAPI starter and leaderboard API with a SQL schema
+- `service/web/`: static frontend for leaderboard and starter registration
 - `worker/`: Docker-based worker callback flow
 - `docker/`: API and worker Dockerfiles plus a runtime spec
 

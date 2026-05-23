@@ -5,7 +5,7 @@
 Participants upload:
 
 ```text
-submission/
+starter/
   train.py
   config.json
 ```
@@ -18,8 +18,8 @@ The benchmark system runs:
 python3 benchmark.py \
   --input_dir /input \
   --output_dir /output \
-  --submission /workspace/submission/train.py \
-  --config /workspace/submission/config.json \
+  --starter /workspace/starter/train.py \
+  --config /workspace/starter/config.json \
   --timeout_sec 600
 ```
 
@@ -28,7 +28,7 @@ At execution time, the service overrides these config fields:
 - `backend = "torch"`
 - `nsample_per_protein = 1`
 
-MLX is disabled in the hosted submission backend.
+MLX is disabled in the hosted starter backend.
 
 ## Input Contract
 
@@ -45,12 +45,12 @@ Each test sample must provide a FASTA path relative to `test/manifest.json`:
 {
   "target_id": "example_target",
   "sequence_fasta_path": "fastas/example_target.fasta",
-  "reference_structure_path": "references/example_target.cif",
+  "baseline_structure_path": "baselines/example_target.cif",
   "min_coverage": 0.95
 }
 ```
 
-`reference_structure_path` is required only for public-dev scoring.
+`baseline_structure_path` is required only for public-dev scoring.
 
 Each FASTA input corresponds to one required prediction output.
 
@@ -78,7 +78,7 @@ Optional:
 - missing prediction files
 - empty prediction files
 - no parseable CA trace in predicted structure
-- missing public-dev reference structure
+- missing public-dev baseline structure
 
 ## Ranking
 

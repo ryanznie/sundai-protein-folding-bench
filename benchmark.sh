@@ -11,6 +11,6 @@ mkdir -p "$OUTPUT_DIR"
 python3 "$ROOT_DIR/benchmark.py" \
   --input_dir "$INPUT_DIR" \
   --output_dir "$OUTPUT_DIR" \
-  --submission "$ROOT_DIR/submission/train.py" \
-  --config "$ROOT_DIR/submission/config.json" \
+  --submission "$ROOT_DIR/starter/train.py" \
+  --config "$ROOT_DIR/starter/config.json" \
   --timeout_sec "$TIMEOUT_SEC"

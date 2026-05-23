@@ -7,20 +7,20 @@ The public repo defines:
 - bundle builder and bundle schema
 - benchmark runner and timeout enforcement
 - structure-based public-dev scoring
-- starter submission contract
+- starter starter contract
 
 ## Production Services
 
 ### API
 
 [service/app.py](/Users/ryanznie/Desktop/Important/Work/Sundai/sundai-protein-folding-bench/service/app.py)
-accepts submissions, records status, stores scores, exposes a leaderboard, and
+accepts starters, records status, stores scores, exposes a leaderboard, and
 serves the static frontend from [service/web/index.html](/Users/ryanznie/Desktop/Important/Work/Sundai/sundai-protein-folding-bench/service/web/index.html).
 
 ### Worker
 
-[worker/run_submission.py](/Users/ryanznie/Desktop/Important/Work/Sundai/sundai-protein-folding-bench/worker/run_submission.py)
-unpacks `submission.zip`, overlays it into the benchmark repo snapshot, runs the
+[worker/run_starter.py](/Users/ryanznie/Desktop/Important/Work/Sundai/sundai-protein-folding-bench/worker/run_starter.py)
+unpacks `starter.zip`, overlays it into the benchmark repo snapshot, runs the
 benchmark container, and reports results back to the API.
 
 ### Runtime

@@ -18,7 +18,7 @@ services:
       - ./sdk:/app/sdk
       - ./tools:/app/tools
       - ./submission:/app/submission
-      - ./reference:/app/reference
+      - ./baseline:/app/reference
       - ./benchmark.py:/app/benchmark.py
       - ./scorer.py:/app/scorer.py
       - sundai-api-data:/data

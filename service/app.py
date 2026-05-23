@@ -87,7 +87,7 @@ def init_db() -> None:
 def load_submission_config_from_zip(storage_path: Path) -> dict | None:
     try:
         with ZipFile(storage_path) as archive:
-            with archive.open("submission/config.json") as handle:
+            with archive.open("starter/config.json") as handle:
                 return json.loads(handle.read().decode("utf-8"))
     except Exception as exc:  # noqa: BLE001
         LOGGER.warning("failed to read submission config from zip path=%s error=%s", storage_path, exc)
@@ -417,10 +417,10 @@ async def upload_submission(
     await file.close()
     try:
         with ZipFile(storage_path) as archive:
-            if "submission/train.py" not in archive.namelist():
+            if "starter/train.py" not in archive.namelist():
                 raise HTTPException(
                     status_code=400,
-                    detail="zip must contain submission/train.py",
+                    detail="zip must contain starter/train.py",
                 )
     except BadZipFile as exc:
         storage_path.unlink(missing_ok=True)

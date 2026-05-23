@@ -4,8 +4,8 @@
 
 Participants still only need:
 
-- `submission/train.py`
-- `submission/config.json`
+- `starter/train.py`
+- `starter/config.json`
 
 Benchmark owners additionally use:
 
@@ -68,5 +68,5 @@ Each test sample should include:
 - `reference_structure_path` for public-dev only
 - optional `min_coverage`
 
-The bundled `submission/train.py` reads `sequence_fasta_path` and runs the
+The bundled `starter/train.py` reads `sequence_fasta_path` and runs the
 SimpleFold CLI directly.
