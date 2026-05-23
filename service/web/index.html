@@ -395,6 +395,13 @@
         text-transform: uppercase;
       }
 
+      .clamped-text {
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        overflow: hidden;
+      }
+
       .empty {
         padding: 24px 0 8px;
         color: var(--muted);
@@ -407,7 +414,9 @@
       }
 
       .flash.error { color: var(--danger); }
+      .flash.warning { color: var(--warning); }
       .flash.queued { color: var(--accent); }
+      .flash.completed { color: var(--safe); }
 
       .log-viewer {
         margin-top: 16px;
@@ -503,13 +512,6 @@
             <div class="microcopy">Scoring glossary</div>
           </a>
         </nav>
-
-        <div class="rail-bottom">
-          <div class="card status-card upload">
-            <span class="pill">Accepted File</span>
-            <p class="lead">One `.zip` containing `train.py` and `config.json`.</p>
-          </div>
-        </div>
       </aside>
 
       <main class="main">
@@ -530,7 +532,7 @@
               <div class="metric-value" id="teams-ranked">0</div>
             </div>
             <div class="metric">
-              <span class="metric-label">Best TM-score</span>
+              <span class="metric-label">Best Mean TM-score</span>
               <div class="metric-value" id="best-tm-score">-</div>
             </div>
             <div class="metric">
@@ -556,6 +558,7 @@
                   <th>Team</th>
                   <th>Status</th>
                   <th>TM-score</th>
+                  <th>GDT-TS</th>
                   <th>lDDT</th>
                   <th>CA-RMSD</th>
                   <th>Runtime</th>
@@ -588,7 +591,6 @@
               </div>
               <div class="actions">
                 <button class="button primary" type="submit">Upload And Queue</button>
-                <button class="button" type="button" id="load-latest-button">Load Latest</button>
               </div>
               <div class="flash" id="flash"></div>
             </form>
@@ -607,6 +609,10 @@
                   <div id="detail-status"></div>
                 </div>
                 <div>
+                  <div class="meta-label">Description</div>
+                  <div id="detail-description"></div>
+                </div>
+                <div>
                   <div class="meta-label">Runtime</div>
                   <div id="detail-runtime"></div>
                 </div>
@@ -621,6 +627,10 @@
                 <div>
                   <div class="meta-label">Mean TM-score</div>
                   <div id="detail-tm-score"></div>
+                </div>
+                <div>
+                  <div class="meta-label">Mean GDT-TS</div>
+                  <div id="detail-gdt-ts"></div>
                 </div>
                 <div>
                   <div class="meta-label">Mean lDDT</div>
@@ -650,7 +660,7 @@
                 </div>
                 <div class="log-viewer">
                   <div class="meta-label">Submission Log</div>
-                  <pre id="detail-log">Log not loaded yet.</pre>
+                  <pre id="detail-log">Initializing submission...</pre>
                 </div>
               </div>
             </div>
@@ -669,7 +679,6 @@
       const submissionForm = document.getElementById("submission-form");
       const flash = document.getElementById("flash");
       const submissionCard = document.getElementById("submission-card");
-      const loadLatestButton = document.getElementById("load-latest-button");
       const cancelSubmissionButton = document.getElementById("cancel-submission-button");
 
       let latestSubmissionId = null;
@@ -692,6 +701,11 @@
         return date.toLocaleString();
       }
 
+      function truncateText(value, maxLength = 120) {
+        if (!value) return "";
+        return value.length > maxLength ? `${value.slice(0, maxLength - 1)}…` : value;
+      }
+
       function setFlash(message, type = "info") {
         flash.textContent = message;
         flash.className = `flash ${type}`;
@@ -711,12 +725,19 @@
         leaderboardEmpty.hidden = rows.length !== 0;
 
         rows.forEach((row, index) => {
+          const description = row.description || "";
+          const shortDescription = truncateText(description, 90);
           const tr = document.createElement("tr");
           tr.innerHTML = `
             <td class="rank">${index + 1}</td>
-            <td><div>${row.team_name}</div><div class="microcopy">${row.submission_id}</div></td>
-            <td><span class="status ${row.status || ""}">${row.status || "-"}</span></td>
+            <td>
+              <div>${row.team_name}</div>
+              <div class="microcopy clamped-text" title="${description.replace(/"/g, "&quot;")}">${shortDescription}</div>
+              <div class="microcopy">${row.submission_id}</div>
+            </td>
+            <td><span class="status ${row.status}">${row.status}</span></td>
             <td>${formatNumber(row.mean_tm_score)}</td>
+            <td>${formatNumber(row.mean_gdt_ts_like)}</td>
             <td>${formatNumber(row.mean_lddt)}</td>
             <td>${formatNumber(row.mean_ca_rmsd)}</td>
             <td>${formatRuntime(row.total_runtime_sec)}</td>
@@ -746,10 +767,18 @@
         const statusNode = document.getElementById("detail-status");
         statusNode.textContent = submission.status || "-";
         statusNode.className = `status ${submission.status || ""}`;
+        
+        const config = payload.submission_config || {};
+        const description = config.description || submission.description || "-";
+        const descriptionNode = document.getElementById("detail-description");
+        descriptionNode.textContent = truncateText(description, 140);
+        descriptionNode.title = description;
+        
         document.getElementById("detail-runtime").textContent = formatRuntime(submission.runtime_sec);
         document.getElementById("detail-valid").textContent = submission.valid === 1 ? "true" : submission.valid === 0 ? "false" : "-";
         document.getElementById("detail-filename").textContent = submission.original_filename || "-";
         document.getElementById("detail-tm-score").textContent = formatNumber(score.mean_tm_score);
+        document.getElementById("detail-gdt-ts").textContent = formatNumber(score.mean_gdt_ts_like);
         document.getElementById("detail-lddt").textContent = formatNumber(score.mean_lddt);
         document.getElementById("detail-ca-rmsd").textContent = formatNumber(score.mean_ca_rmsd);
         document.getElementById("detail-targets").textContent = String(targets.length);
@@ -758,8 +787,9 @@
         document.getElementById("detail-config").textContent = payload.submission_config
           ? JSON.stringify(payload.submission_config, null, 2)
           : "Config not available.";
-        cancelSubmissionButton.hidden = !["queued", "running"].includes(submission.status);
-        cancelSubmissionButton.disabled = false;
+        const canCancel = ["queued", "running"].includes(submission.status);
+        cancelSubmissionButton.hidden = !canCancel;
+        cancelSubmissionButton.disabled = !canCancel;
       }
 
       async function loadSubmission(submissionId) {
@@ -771,25 +801,41 @@
         renderSubmission(payload);
         try {
           const logPayload = await fetchJson(`/submissions/${submissionId}/log`);
-          document.getElementById("detail-log").textContent = logPayload.contents || "Log is empty.";
+          document.getElementById("detail-log").textContent =
+            logPayload.contents && logPayload.contents.trim().length
+              ? logPayload.contents
+              : "Initializing submission...";
         } catch (error) {
-          document.getElementById("detail-log").textContent = "Log not available yet.";
+          document.getElementById("detail-log").textContent = "Initializing submission...";
         }
         return payload;
       }
 
       async function pollSubmission(submissionId) {
         const token = ++latestPollToken;
-        // Poll for ~2 minutes (120 * 1000ms)
-        for (let attempt = 0; attempt < 120; attempt += 1) {
+        const startedAt = Date.now();
+        const maxPollMs = 5 * 60 * 1000;
+        while (Date.now() - startedAt < maxPollMs) {
           const payload = await loadSubmission(submissionId);
           const status = payload?.submission?.status;
           if (token !== latestPollToken) return;
-          if (status === "completed" || status === "failed") {
+          if (status === "completed" || status === "failed" || status === "cancelled") {
+            const filename = payload?.submission?.original_filename || "submission.zip";
+            const runtime = payload?.submission?.runtime_sec;
+            if (status === "completed") {
+              setFlash(`Completed ${submissionId} from ${filename} in ${formatRuntime(runtime)}`, "completed");
+            } else if (status === "cancelled") {
+              setFlash(`Cancelled ${submissionId} from ${filename}`, "warning");
+            } else {
+              setFlash(`Failed ${submissionId} from ${filename}`, "error");
+            }
             await Promise.all([loadLeaderboard(), loadSubmission(submissionId)]);
             return;
           }
           await new Promise((resolve) => setTimeout(resolve, 1000));
+        }
+        if (token === latestPollToken) {
+          setFlash("Run is still active. Use Load Latest to keep checking.", "warning");
         }
       }
 
@@ -817,14 +863,6 @@
         }
       });
 
-      loadLatestButton.addEventListener("click", async () => {
-        try {
-          await loadSubmission(latestSubmissionId);
-        } catch (error) {
-          setFlash(error.message, "error");
-        }
-      });
-
       cancelSubmissionButton.addEventListener("click", async () => {
         if (!latestSubmissionId) {
           setFlash("No active submission selected.", "error");
@@ -833,7 +871,7 @@
         cancelSubmissionButton.disabled = true;
         try {
           await fetchJson(`/submissions/${latestSubmissionId}/cancel`, { method: "POST" });
-          setFlash(`Cancellation requested for ${latestSubmissionId}`);
+          setFlash(`Cancellation requested for ${latestSubmissionId}`, "error");
           await loadSubmission(latestSubmissionId);
         } catch (error) {
           cancelSubmissionButton.disabled = false;

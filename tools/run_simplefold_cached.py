@@ -134,7 +134,7 @@ def run_cached_inference(args: argparse.Namespace) -> None:
                 output_format=args.output_format,
                 plddts=plddts[i] if plddts is not None else None,
             )
-            print(f"[progress] [{index}/{total}] - completed {target_id}", flush=True)
+            print(f"[progress] [{index}/{total}] - {target_id}", flush=True)
 
 
 def main() -> None:

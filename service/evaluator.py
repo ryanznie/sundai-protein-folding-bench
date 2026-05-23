@@ -13,7 +13,7 @@ from shutil import copytree
 from threading import Event
 from typing import Callable
 
-from service.logging_utils import env_path
+from service.logging_utils import append_submission_progress, env_path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -91,8 +91,6 @@ def _build_bundle(bundle_dir: Path) -> None:
 
 def _build_runtime_config(uploaded_config_path: Path, workspace_dir: Path, bundle_dir: Path) -> Path:
     config = json.loads(uploaded_config_path.read_text())
-    config.setdefault("track", "simplefold_100M_finetune_under_budget")
-    config.setdefault("simplefold_model", "simplefold_100M")
     config.setdefault("num_steps", 50)
     config.setdefault("tau", 0.01)
     config["nsample_per_protein"] = 1
@@ -132,7 +130,7 @@ def run_uploaded_submission(
     *,
     cancel_event: Event | None = None,
     process_started: Callable[[subprocess.Popen[str]], None] | None = None,
-    submission_logger: logging.Logger | None = None,
+    submission_log_path: Path | None = None,
 ) -> dict:
     ready, missing = evaluator_assets_ready()
     if not ready:
@@ -149,6 +147,16 @@ def run_uploaded_submission(
         submission_path, uploaded_config_path = _extract_submission(upload_path, workspace_dir)
         _build_bundle(bundle_dir)
         config_path = _build_runtime_config(uploaded_config_path, workspace_dir, bundle_dir)
+        if submission_log_path:
+            try:
+                manifest = json.loads((bundle_dir / "test" / "manifest.json").read_text())
+                target_count = len(manifest.get("samples", []))
+                append_submission_progress(
+                    submission_log_path,
+                    f"starting run for {target_count} targets",
+                )
+            except Exception:  # noqa: BLE001
+                append_submission_progress(submission_log_path, "starting run")
 
         command = [
             sys.executable,
@@ -189,8 +197,11 @@ def run_uploaded_submission(
                 terminate_process_tree(process)
             stripped = line.rstrip()
             output_lines.append(line)
-            if submission_logger and should_record_submission_progress(stripped):
-                submission_logger.info(stripped)
+            if submission_log_path and should_record_submission_progress(stripped):
+                append_submission_progress(
+                    submission_log_path,
+                    stripped.removeprefix("[progress] ").strip(),
+                )
             LOGGER.info("benchmark stream %s", stripped)
         returncode = process.wait()
         combined_output = "".join(output_lines)

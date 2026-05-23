@@ -25,9 +25,10 @@ from service.evaluator import (
     terminate_process_tree,
 )
 from service.logging_utils import (
-    build_submission_logger,
+    append_submission_progress,
     configure_logging,
     env_path,
+    reset_submission_progress_log,
     submission_log_path,
 )
 
@@ -81,6 +82,8 @@ def init_db() -> None:
             connection.execute("alter table submissions add column original_filename text")
         if "config_json" not in existing_columns:
             connection.execute("alter table submissions add column config_json text")
+        if "description" not in existing_columns:
+            connection.execute("alter table submissions add column description text")
         connection.commit()
 
 
@@ -243,35 +246,27 @@ def persist_completion(submission_id: str, payload: SubmissionResult) -> None:
 
 
 def run_submission_job(submission_id: str, upload_path: Path) -> None:
-    submission_logger, log_path = build_submission_logger(LOG_ROOT, submission_id)
+    log_path = submission_log_path(LOG_ROOT, submission_id)
+    reset_submission_progress_log(log_path)
+    append_submission_progress(log_path, "initialized")
     with JOB_STATE_LOCK:
         cancel_event = JOB_CANCEL_EVENTS.setdefault(submission_id, threading.Event())
 
     def register_process(process: subprocess.Popen[str]) -> None:
         with JOB_STATE_LOCK:
             JOB_PROCESSES[submission_id] = process
-        submission_logger.info("benchmark process started pid=%s", process.pid)
 
     try:
-        submission_logger.info("job started upload_path=%s", upload_path)
         sleep(0.8)
         if cancel_event.is_set():
             set_submission_status(submission_id, status="cancelled", valid=0, invalid_reason="cancelled by user")
-            submission_logger.info("job cancelled before execution")
             return
         set_submission_status(submission_id, status="running")
-        submission_logger.info("submission marked running")
         result = run_uploaded_submission(
             upload_path,
             cancel_event=cancel_event,
             process_started=register_process,
-            submission_logger=submission_logger,
-        )
-        submission_logger.info(
-            "benchmark finished returncode=%s runtime_sec=%s error=%s",
-            result.get("returncode"),
-            result.get("runtime_sec"),
-            result.get("error"),
+            submission_log_path=log_path,
         )
         scoring = result.get("scoring")
         is_valid = bool(scoring["valid"]) if scoring else False
@@ -286,28 +281,27 @@ def run_submission_job(submission_id: str, upload_path: Path) -> None:
                 targets=scoring["targets"] if scoring else None,
             ),
         )
-        submission_logger.info(
-            "job completed status=%s valid=%s score_targets=%s",
+        append_submission_progress(
+            log_path,
             "completed" if result.get("valid") else "failed",
-            is_valid,
-            len(scoring["targets"]) if scoring else 0,
         )
     except SubmissionCancelledError as exc:
-        submission_logger.info("job cancelled error=%s", exc)
         set_submission_status(
             submission_id,
             status="cancelled",
             valid=0,
             invalid_reason=str(exc),
         )
+        append_submission_progress(log_path, "cancelled")
     except Exception as exc:  # noqa: BLE001
-        submission_logger.exception("job failed error=%s", exc)
+        LOGGER.exception("job failed submission_id=%s error=%s", submission_id, exc)
         set_submission_status(
             submission_id,
             status="failed",
             valid=0,
             invalid_reason=f"{type(exc).__name__}: {exc}",
         )
+        append_submission_progress(log_path, "failed")
     finally:
         with JOB_STATE_LOCK:
             JOB_PROCESSES.pop(submission_id, None)
@@ -434,6 +428,7 @@ async def upload_submission(
         storage_path,
     )
     config_payload = load_submission_config_from_zip(storage_path)
+    description = (config_payload or {}).get("description")
     runtime_spec = "docker/worker/runtime-spec.json"
 
     with connect() as connection:
@@ -441,8 +436,8 @@ async def upload_submission(
         connection.execute(
             """
             insert into submissions(
-                id, team_id, created_by_user_id, status, storage_key, runtime_spec, original_filename, config_json
-            ) values (?, ?, ?, 'queued', ?, ?, ?, ?)
+                id, team_id, created_by_user_id, status, storage_key, runtime_spec, original_filename, config_json, description
+            ) values (?, ?, ?, 'queued', ?, ?, ?, ?, ?)
             """,
             (
                 submission_id,
@@ -452,6 +447,7 @@ async def upload_submission(
                 runtime_spec,
                 safe_name,
                 json.dumps(config_payload, indent=2) if config_payload is not None else None,
+                description,
             ),
         )
         connection.commit()
@@ -530,7 +526,6 @@ def complete_submission(submission_id: str, payload: SubmissionResult) -> dict:
 def runtime_config() -> dict:
     ready, missing = evaluator_assets_ready()
     return {
-        "mode": "live-inference",
         "ready": ready,
         "missing": missing,
         "targets": ["7ftv_A", "8cny_A", "8g8r_A", "8i85_A"],
@@ -552,6 +547,7 @@ def leaderboard() -> dict:
                     submissions.valid,
                     submissions.created_at,
                     submissions.completed_at,
+                    submissions.description,
                     scores.mean_tm_score,
                     scores.mean_lddt,
                     scores.mean_ca_rmsd,

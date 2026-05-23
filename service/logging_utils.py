@@ -36,5 +36,17 @@ def build_submission_logger(log_root: Path, submission_id: str) -> tuple[logging
     file_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
     logger.addHandler(file_handler)
     return logger, log_path
+
+
+def reset_submission_progress_log(log_path: Path) -> None:
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    log_path.write_text("")
+
+
+def append_submission_progress(log_path: Path, message: str) -> None:
+    with log_path.open("a") as handle:
+        handle.write(f"{message}\n")
+
+
 def env_path(name: str, default: str) -> Path:
     return Path(os.environ.get(name, default)).expanduser().resolve()

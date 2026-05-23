@@ -1,10 +1,9 @@
 {
-  "mode": "baseline_submission",
-  "simplefold_model": "simplefold_100M",
+  "simplefold_model": "simplefold_360M",
   "backend": "torch",
-  "num_steps": 50,
-  "tau": 0.05,
+  "num_steps": 25,
+  "tau": 0.01,
   "nsample_per_protein": 1,
   "plddt": false,
-  "description": "Reference baseline_submission that runs the public SimpleFold CLI on each test FASTA."
+  "description": "100M, 1 steps."
 }

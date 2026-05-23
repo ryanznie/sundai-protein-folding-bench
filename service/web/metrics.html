@@ -287,13 +287,6 @@
             <div class="microcopy">Scoring glossary</div>
           </a>
         </nav>
-
-        <div class="rail-bottom">
-          <div class="card status-card upload">
-            <span class="pill">Accepted File</span>
-            <p class="lead">One `.zip` containing `train.py` and `config.json`.</p>
-          </div>
-        </div>
       </aside>
 
       <main class="main">
@@ -327,6 +320,11 @@
                   <td><strong>TM-score</strong></td>
                   <td>0.0 &rarr; 1.0</td>
                   <td>Template Modeling score. Higher is better. Scores &gt; 0.5 generally indicate a correct global fold.</td>
+                </tr>
+                <tr>
+                  <td><strong>GDT-TS</strong></td>
+                  <td>0.0 &rarr; 1.0</td>
+                  <td>Global Distance Test Total Score. Measures the percentage of C-alpha atoms within 1Å, 2Å, 4Å, and 8Å of the reference structure. Higher is better.</td>
                 </tr>
                 <tr>
                   <td><strong>lDDT</strong></td>

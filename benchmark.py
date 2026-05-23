@@ -51,7 +51,7 @@ def run_submission(context: RunContext, submission_path: Path, config_path: Path
     module = load_submission_module(submission_path)
     config = load_json(config_path) if config_path.exists() else {}
     print(
-        f"[benchmark] submission loaded track={config.get('track')} model={config.get('simplefold_model')} "
+        f"[benchmark] submission loaded model={config.get('simplefold_model')} "
         f"backend={config.get('backend')} num_steps={config.get('num_steps')}",
         flush=True,
     )

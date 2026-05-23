@@ -21,6 +21,7 @@ create table if not exists submissions (
     runtime_spec text not null,
     original_filename text,
     config_json text,
+    description text,
     runtime_sec real,
     valid integer,
     invalid_reason text,
