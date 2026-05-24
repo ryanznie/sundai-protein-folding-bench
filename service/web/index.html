@@ -407,6 +407,30 @@
         color: var(--muted);
       }
 
+      .upload-progress {
+        margin-top: 12px;
+        display: none;
+      }
+
+      .upload-progress-bar-track {
+        height: 4px;
+        background: var(--line-strong);
+      }
+
+      .upload-progress-bar-fill {
+        height: 100%;
+        width: 0%;
+        background: var(--accent);
+        transition: width 80ms linear;
+      }
+
+      .upload-progress-label {
+        margin-top: 5px;
+        font-family: var(--mono-font);
+        font-size: 0.72rem;
+        color: var(--muted);
+      }
+
       .flash {
         min-height: 1.5rem;
         margin-top: 12px;
@@ -590,7 +614,13 @@
                 <div class="file-note">Expected upload: `submission.zip` containing a `submission/` folder with `train.py` and `config.json`.</div>
               </div>
               <div class="actions">
-                <button class="button primary" type="submit">Upload And Queue</button>
+                <button class="button primary" type="submit" id="submit-button">Upload And Queue</button>
+              </div>
+              <div class="upload-progress" id="upload-progress">
+                <div class="upload-progress-bar-track">
+                  <div class="upload-progress-bar-fill" id="upload-progress-fill"></div>
+                </div>
+                <div class="upload-progress-label" id="upload-progress-label">0%</div>
               </div>
               <div class="flash" id="flash"></div>
             </form>
@@ -839,6 +869,48 @@
         }
       }
 
+      function uploadWithProgress(formData) {
+        return new Promise((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          const progressEl = document.getElementById("upload-progress");
+          const fillEl = document.getElementById("upload-progress-fill");
+          const labelEl = document.getElementById("upload-progress-label");
+          const submitButton = document.getElementById("submit-button");
+
+          progressEl.style.display = "block";
+          submitButton.disabled = true;
+
+          xhr.upload.addEventListener("progress", (e) => {
+            if (e.lengthComputable) {
+              const pct = Math.round((e.loaded / e.total) * 100);
+              fillEl.style.width = `${pct}%`;
+              labelEl.textContent = `${pct}%`;
+            }
+          });
+
+          xhr.addEventListener("load", () => {
+            progressEl.style.display = "none";
+            fillEl.style.width = "0%";
+            submitButton.disabled = false;
+            if (xhr.status >= 200 && xhr.status < 300) {
+              try { resolve(JSON.parse(xhr.responseText)); }
+              catch { reject(new Error("Invalid JSON response")); }
+            } else {
+              reject(new Error(xhr.responseText || `Upload failed: ${xhr.status}`));
+            }
+          });
+
+          xhr.addEventListener("error", () => {
+            progressEl.style.display = "none";
+            submitButton.disabled = false;
+            reject(new Error("Network error during upload"));
+          });
+
+          xhr.open("POST", "/submissions/upload");
+          xhr.send(formData);
+        });
+      }
+
       submissionForm.addEventListener("submit", async (event) => {
         event.preventDefault();
         const fileInput = document.getElementById("baseline_submission_file");
@@ -849,10 +921,7 @@
         setFlash("Uploading submission...");
         const formData = new FormData(submissionForm);
         try {
-          const result = await fetchJson("/submissions/upload", {
-            method: "POST",
-            body: formData,
-          });
+          const result = await uploadWithProgress(formData);
           latestSubmissionId = result.submission_id;
           setFlash(`Queued ${result.submission_id} from ${result.filename}`, "queued");
           await loadSubmission(latestSubmissionId);
