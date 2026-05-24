@@ -19,6 +19,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from service.evaluator import (
+    BUNDLE_ROOT,
     SubmissionCancelledError,
     evaluator_assets_ready,
     run_uploaded_submission,
@@ -525,12 +526,17 @@ def complete_submission(submission_id: str, payload: SubmissionResult) -> dict:
 @app.get("/runtime/config")
 def runtime_config() -> dict:
     ready, missing = evaluator_assets_ready()
+    try:
+        test_manifest = json.loads((BUNDLE_ROOT / "test" / "manifest.json").read_text())
+        targets = [sample["target_id"] for sample in test_manifest.get("samples", [])]
+    except Exception:  # noqa: BLE001
+        targets = []
     return {
         "ready": ready,
         "missing": missing,
-        "targets": ["7ftv_A", "8cny_A", "8g8r_A", "8i85_A"],
-        "source_root": "/Users/ryanznie/Desktop/Important/Work/Sundai/bundles/public_lb_v1",
-        "notes": "Using full public_lb_v1 backend bundle with live SimpleFold inference.",
+        "targets": targets,
+        "source_root": str(BUNDLE_ROOT),
+        "notes": "Using simplefold_hackathon_v1 with hidden test references scored outside the submission-visible bundle.",
     }
 
 

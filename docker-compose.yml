@@ -9,7 +9,7 @@ services:
       SUNDAI_DB_PATH: /data/leaderboard.db
       SUNDAI_UPLOAD_ROOT: /data/uploads
       SUNDAI_LOG_ROOT: /data/logs
-      SUNDAI_BUNDLE_ROOT: /opt/sundai/public_lb_v1
+      SUNDAI_BUNDLE_ROOT: /opt/sundai/simplefold_hackathon_v1
       SUNDAI_SIMPLEFOLD_ROOT: /opt/sundai/ml-simplefold
       SUNDAI_SIMPLEFOLD_PYTHON: /app/.venv/bin/python
       SUNDAI_LOG_LEVEL: INFO
@@ -22,7 +22,7 @@ services:
       - ./benchmark.py:/app/benchmark.py
       - ./scorer.py:/app/scorer.py
       - sundai-api-data:/data
-      - /Users/ryanznie/Desktop/Important/Work/Sundai/bundles/public_lb_v1:/opt/sundai/public_lb_v1:ro
+      - /Users/ryanznie/Desktop/Important/Work/Sundai/bundles/simplefold_hackathon_v1:/opt/sundai/simplefold_hackathon_v1:ro
       - /Users/ryanznie/Desktop/Important/Work/Sundai/ml-simplefold:/opt/sundai/ml-simplefold:ro
 
   worker:

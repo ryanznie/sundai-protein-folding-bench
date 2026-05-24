@@ -78,6 +78,7 @@ def main() -> None:
     parser.add_argument("--output_dir", required=True)
     parser.add_argument("--submission", required=True)
     parser.add_argument("--config", required=True)
+    parser.add_argument("--skip_scoring", action="store_true")
     parser.add_argument("--timeout_sec", type=int, default=600)
     args = parser.parse_args()
 
@@ -108,6 +109,9 @@ def main() -> None:
         print(f"[benchmark] validation result valid={outcome['validation']['valid']}", flush=True)
         if not outcome["validation"]["valid"]:
             outcome["error"] = "missing required prediction outputs"
+            outcome["valid"] = False
+        elif args.skip_scoring:
+            outcome["valid"] = True
         else:
             print("[benchmark] starting scoring", flush=True)
             outcome["scoring"] = score_split(

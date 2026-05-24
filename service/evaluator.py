@@ -9,10 +9,13 @@ import sys
 import tempfile
 import zipfile
 from pathlib import Path
+from shutil import copyfile
 from shutil import copytree
 from threading import Event
 from typing import Callable
 
+from scorer import score_split
+from sdk.simplefold import cached_runner_command
 from service.logging_utils import append_submission_progress, env_path
 
 
@@ -31,7 +34,7 @@ SIMPLEFOLD_PYTHON = Path(
 ).expanduser()
 BUNDLE_ROOT = env_path(
     "SUNDAI_BUNDLE_ROOT",
-    "/Users/ryanznie/Desktop/Important/Work/Sundai/bundles/public_lb_v1",
+    "/Users/ryanznie/Desktop/Important/Work/Sundai/bundles/simplefold_hackathon_v1",
 )
 CACHE_SEED_ROOT = env_path(
     "SUNDAI_SIMPLEFOLD_CACHE_SEED_ROOT",
@@ -84,9 +87,28 @@ def _extract_submission(upload_path: Path, workspace_dir: Path) -> tuple[Path, P
     return submission_path, config_path
 
 
+def sanitize_submission_bundle(bundle_dir: Path) -> None:
+    manifest_path = bundle_dir / "test" / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["samples"] = []
+    manifest_path.write_text(json.dumps(manifest, indent=2))
+
+    for dirname in ("references", "processed", "samples", "esm", "fastas"):
+        target_dir = bundle_dir / "test" / dirname
+        if target_dir.exists():
+            for path in sorted(target_dir.rglob("*"), reverse=True):
+                if path.is_file():
+                    path.unlink()
+                elif path.is_dir():
+                    path.rmdir()
+            target_dir.rmdir()
+
+
 def _build_bundle(bundle_dir: Path) -> None:
     copytree(BUNDLE_ROOT, bundle_dir, dirs_exist_ok=True)
+    sanitize_submission_bundle(bundle_dir)
     LOGGER.info("live bundle copied bundle_dir=%s", bundle_dir)
+    LOGGER.info("submission bundle sanitized test references removed bundle_dir=%s", bundle_dir)
 
 
 def _build_runtime_config(uploaded_config_path: Path, workspace_dir: Path, bundle_dir: Path) -> Path:
@@ -112,6 +134,121 @@ def _build_runtime_config(uploaded_config_path: Path, workspace_dir: Path, bundl
     config_path.write_text(json.dumps(config, indent=2))
     LOGGER.info("runtime config built config_path=%s config=%s", config_path, config)
     return config_path
+
+
+def _load_runtime_config(config_path: Path) -> dict:
+    return json.loads(config_path.read_text())
+
+
+def _resolve_hidden_ckpt_dir(
+    *,
+    workspace_dir: Path,
+    output_dir: Path,
+    model_name: str,
+    fallback_ckpt_dir: Path,
+) -> Path:
+    output_ckpt_dir = output_dir / "checkpoints"
+    named_ckpt = output_ckpt_dir / f"{model_name}.ckpt"
+    if named_ckpt.exists():
+        return output_ckpt_dir
+
+    adapted_ckpt = output_ckpt_dir / "adapted.ckpt"
+    if adapted_ckpt.exists():
+        hidden_ckpt_dir = workspace_dir / "hidden_checkpoints"
+        hidden_ckpt_dir.mkdir(parents=True, exist_ok=True)
+        copyfile(adapted_ckpt, hidden_ckpt_dir / f"{model_name}.ckpt")
+        return hidden_ckpt_dir
+
+    return fallback_ckpt_dir
+
+
+def run_hidden_test_inference(
+    *,
+    workspace_dir: Path,
+    output_dir: Path,
+    runtime_config: dict,
+    submission_log_path: Path | None,
+    cancel_event: Event | None,
+) -> dict:
+    hidden_output_dir = workspace_dir / "hidden_test_output"
+    hidden_output_dir.mkdir(parents=True, exist_ok=True)
+
+    model_name = str(runtime_config.get("simplefold_model", "simplefold_100M"))
+    hidden_ckpt_dir = _resolve_hidden_ckpt_dir(
+        workspace_dir=workspace_dir,
+        output_dir=output_dir,
+        model_name=model_name,
+        fallback_ckpt_dir=BUNDLE_ROOT / "checkpoints",
+    )
+
+    hidden_config = dict(runtime_config)
+    hidden_config["ckpt_dir"] = str(hidden_ckpt_dir)
+
+    args = [
+        *cached_runner_command(hidden_config),
+        "--manifest_path",
+        str(BUNDLE_ROOT / "test" / "manifest.json"),
+        "--split_dir",
+        str(BUNDLE_ROOT / "test"),
+        "--simplefold_model",
+        model_name,
+        "--num_steps",
+        str(int(hidden_config.get("num_steps", 500))),
+        "--tau",
+        str(hidden_config.get("tau", 0.01)),
+        "--nsample_per_protein",
+        "1",
+        "--ckpt_dir",
+        str(hidden_ckpt_dir),
+        "--output_dir",
+        str(hidden_output_dir),
+        "--backend",
+        "torch",
+    ]
+    if bool(hidden_config.get("plddt", False)):
+        args.append("--plddt")
+
+    env = os.environ.copy()
+    env.update({str(key): str(value) for key, value in (hidden_config.get("simplefold_env") or {}).items()})
+
+    LOGGER.info("starting hidden test inference command=%s", args)
+    process = subprocess.Popen(
+        args,
+        cwd=str(hidden_config.get("simplefold_workdir") or SIMPLEFOLD_ROOT),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1,
+        start_new_session=True,
+        env=env,
+    )
+    hidden_lines: list[str] = []
+    assert process.stdout is not None
+    for line in process.stdout:
+        if cancel_event and cancel_event.is_set():
+            LOGGER.info("hidden inference cancellation requested pid=%s", process.pid)
+            terminate_process_tree(process)
+        stripped = line.rstrip()
+        hidden_lines.append(line)
+        if submission_log_path and should_record_submission_progress(stripped):
+            append_submission_progress(
+                submission_log_path,
+                stripped.removeprefix("[progress] ").strip(),
+            )
+        LOGGER.info("hidden inference stream %s", stripped)
+    returncode = process.wait()
+    combined_output = "".join(hidden_lines)
+    if returncode != 0:
+        raise RuntimeError(
+            "hidden test inference failed\n"
+            f"stdout:\n{combined_output}\n"
+        )
+
+    scoring = score_split(BUNDLE_ROOT / "test" / "manifest.json", hidden_output_dir / "predictions")
+    return {
+        "scoring": scoring,
+        "stdout": combined_output,
+    }
 
 
 def terminate_process_tree(process: subprocess.Popen[str]) -> None:
@@ -147,16 +284,9 @@ def run_uploaded_submission(
         submission_path, uploaded_config_path = _extract_submission(upload_path, workspace_dir)
         _build_bundle(bundle_dir)
         config_path = _build_runtime_config(uploaded_config_path, workspace_dir, bundle_dir)
+        runtime_config = _load_runtime_config(config_path)
         if submission_log_path:
-            try:
-                manifest = json.loads((bundle_dir / "test" / "manifest.json").read_text())
-                target_count = len(manifest.get("samples", []))
-                append_submission_progress(
-                    submission_log_path,
-                    f"starting run for {target_count} targets",
-                )
-            except Exception:  # noqa: BLE001
-                append_submission_progress(submission_log_path, "starting run")
+            append_submission_progress(submission_log_path, "starting run for train/val")
 
         command = [
             sys.executable,
@@ -169,6 +299,7 @@ def run_uploaded_submission(
             str(submission_path),
             "--config",
             str(config_path),
+            "--skip_scoring",
             "--timeout_sec",
             "1800",
         ]
@@ -215,6 +346,18 @@ def run_uploaded_submission(
                 f"stdout:\n{combined_output}\n\nstderr:\n"
             )
         results = json.loads(results_path.read_text())
+        validation = results.get("validation") or {}
+        if results.get("error") is None and validation.get("valid"):
+            hidden_result = run_hidden_test_inference(
+                workspace_dir=workspace_dir,
+                output_dir=output_dir,
+                runtime_config=runtime_config,
+                submission_log_path=submission_log_path,
+                cancel_event=cancel_event,
+            )
+            results["scoring"] = hidden_result["scoring"]
+            results["valid"] = bool(hidden_result["scoring"]["valid"])
+            combined_output = combined_output + hidden_result["stdout"]
         results["stdout"] = combined_output
         results["stderr"] = ""
         results["returncode"] = returncode
