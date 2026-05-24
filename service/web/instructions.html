@@ -305,7 +305,7 @@
                   <strong>Local Dev vs. Production:</strong> While local development may use <code>MLX</code> for Apple Silicon, <strong>MLX is disabled</strong> during production benchmark runs. Ensure your <code>train.py</code> defaults to <code>torch</code> or handles backend selection gracefully.
                 </li>
                 <li>
-                  <strong>Bundle Structure:</strong> The uploaded <code>.zip</code> must contain a <code>submission/</code> folder with at least <code>train.py</code> and <code>config.json</code>. (The repository's <code>baseline_submission/</code> folder is just a reference; the submitted folder must be named <code>submission/</code>).
+                  <strong>Bundle Structure:</strong> The uploaded <code>.zip</code> must contain a <code>submission/</code> folder with at least <code>train.py</code> and <code>config.json</code>. Optional checkpoints may be included under <code>submission/checkpoints/</code>, but each <code>.ckpt</code> file must be no larger than <code>500 MB</code>.
                 </li>
               </ul>
 

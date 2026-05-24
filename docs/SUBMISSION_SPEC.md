@@ -22,9 +22,17 @@ submission.zip
 └── submission/
     ├── train.py
     └── config.json
+    └── checkpoints/          # optional
+        └── <simplefold_model>.ckpt
 ```
 
 **The folder inside the zip must be named `submission/`.**
+If you upload a checkpoint, each `.ckpt` file under `submission/checkpoints/`
+must be at most `500 MB`.
+When an uploaded checkpoint is present, the backend uses that checkpoint for the
+current submission run instead of the bundled base checkpoint. If no uploaded
+checkpoint is present, the backend uses the bundled checkpoint for the selected
+`simplefold_model`.
 
 The CLI runner uses the following parameters internally:
 

@@ -72,7 +72,7 @@ def evaluator_assets_ready() -> tuple[bool, list[str]]:
     return len(missing) == 0, missing
 
 
-def _extract_submission(upload_path: Path, workspace_dir: Path) -> tuple[Path, Path]:
+def _extract_submission(upload_path: Path, workspace_dir: Path) -> tuple[Path, Path, Path]:
     extract_dir = workspace_dir / "submission_src"
     extract_dir.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(upload_path) as archive:
@@ -85,7 +85,7 @@ def _extract_submission(upload_path: Path, workspace_dir: Path) -> tuple[Path, P
     if not config_path.exists():
         raise FileNotFoundError("uploaded zip must contain submission/config.json")
     LOGGER.info("submission extracted upload_path=%s workspace_dir=%s", upload_path, workspace_dir)
-    return submission_path, config_path
+    return submission_path, config_path, extract_dir / "submission"
 
 
 def sanitize_submission_bundle(bundle_dir: Path) -> None:
@@ -112,10 +112,35 @@ def _build_bundle(bundle_dir: Path) -> None:
     LOGGER.info("submission bundle sanitized test references removed bundle_dir=%s", bundle_dir)
 
 
-def _build_runtime_config(uploaded_config_path: Path, workspace_dir: Path, bundle_dir: Path) -> Path:
+def resolve_uploaded_ckpt_dir(
+    *,
+    submission_dir: Path,
+    workspace_dir: Path,
+    model_name: str,
+) -> tuple[Path | None, str | None]:
+    uploaded_ckpt_dir = submission_dir / "checkpoints"
+    if not uploaded_ckpt_dir.exists():
+        return None, None
+
+    named_ckpt = uploaded_ckpt_dir / f"{model_name}.ckpt"
+    if named_ckpt.exists():
+        return uploaded_ckpt_dir, f"uploaded checkpoint {named_ckpt.name}"
+
+    candidates = sorted(uploaded_ckpt_dir.glob("*.ckpt"))
+    if len(candidates) != 1:
+        return None, None
+
+    remapped_dir = workspace_dir / "uploaded_checkpoints"
+    remapped_dir.mkdir(parents=True, exist_ok=True)
+    copyfile(candidates[0], remapped_dir / f"{model_name}.ckpt")
+    return remapped_dir, f"uploaded checkpoint {candidates[0].name} remapped to {model_name}.ckpt"
+
+
+def _build_runtime_config(uploaded_config_path: Path, workspace_dir: Path, bundle_dir: Path, submission_dir: Path) -> tuple[Path, str]:
     config = json.loads(uploaded_config_path.read_text())
     config.setdefault("num_steps", 50)
     config.setdefault("tau", 0.01)
+    model_name = str(config.get("simplefold_model", "simplefold_100M"))
     config["nsample_per_protein"] = 1
     config["backend"] = "torch"
     config["plddt"] = bool(config.get("plddt", False))
@@ -129,12 +154,23 @@ def _build_runtime_config(uploaded_config_path: Path, workspace_dir: Path, bundl
         "PYTHONPATH": str(SIMPLEFOLD_ROOT / "src"),
         "MPLCONFIGDIR": str(workspace_dir / "mplconfig"),
     }
-    config["ckpt_dir"] = str(bundle_dir / "checkpoints")
+    uploaded_ckpt_dir, uploaded_ckpt_note = resolve_uploaded_ckpt_dir(
+        submission_dir=submission_dir,
+        workspace_dir=workspace_dir,
+        model_name=model_name,
+    )
+    using_uploaded_checkpoint = uploaded_ckpt_dir is not None
+    config["ckpt_dir"] = str(uploaded_ckpt_dir or (bundle_dir / "checkpoints"))
     config["simplefold_cache_seed_dir"] = str(CACHE_SEED_ROOT)
     config_path = workspace_dir / "runtime_config.json"
     config_path.write_text(json.dumps(config, indent=2))
     LOGGER.info("runtime config built config_path=%s config=%s", config_path, config)
-    return config_path
+    checkpoint_note = (
+        f"using {uploaded_ckpt_note} for model {model_name}"
+        if using_uploaded_checkpoint
+        else f"using bundled checkpoint {model_name}.ckpt"
+    )
+    return config_path, checkpoint_note
 
 
 def _load_runtime_config(config_path: Path) -> dict:
@@ -296,12 +332,13 @@ def run_uploaded_submission(
         output_dir = workspace_dir / "output"
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        submission_path, uploaded_config_path = _extract_submission(upload_path, workspace_dir)
+        submission_path, uploaded_config_path, submission_dir = _extract_submission(upload_path, workspace_dir)
         _build_bundle(bundle_dir)
-        config_path = _build_runtime_config(uploaded_config_path, workspace_dir, bundle_dir)
+        config_path, checkpoint_note = _build_runtime_config(uploaded_config_path, workspace_dir, bundle_dir, submission_dir)
         runtime_config = _load_runtime_config(config_path)
         if submission_log_path:
             append_submission_progress(submission_log_path, "starting run for train/val")
+            append_submission_progress(submission_log_path, checkpoint_note)
 
         command = [
             sys.executable,

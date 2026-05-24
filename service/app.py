@@ -45,6 +45,7 @@ LOG_ROOT = env_path("SUNDAI_LOG_ROOT", str(Path(__file__).with_name("logs")))
 JOB_STATE_LOCK = threading.Lock()
 JOB_CANCEL_EVENTS: dict[str, threading.Event] = {}
 JOB_PROCESSES: dict[str, subprocess.Popen[str]] = {}
+MAX_UPLOADED_CHECKPOINT_BYTES = 500 * 1024 * 1024
 
 
 class SubmissionCreate(BaseModel):
@@ -96,6 +97,42 @@ def load_submission_config_from_zip(storage_path: Path) -> dict | None:
     except Exception as exc:  # noqa: BLE001
         LOGGER.warning("failed to read submission config from zip path=%s error=%s", storage_path, exc)
         return None
+
+
+def validate_submission_archive(storage_path: Path) -> None:
+    try:
+        with ZipFile(storage_path) as archive:
+            names = set(archive.namelist())
+            if "submission/train.py" not in names:
+                raise HTTPException(
+                    status_code=400,
+                    detail="zip must contain submission/train.py",
+                )
+            if "submission/config.json" not in names:
+                raise HTTPException(
+                    status_code=400,
+                    detail="zip must contain submission/config.json",
+                )
+
+            checkpoint_infos = [
+                info
+                for info in archive.infolist()
+                if info.filename.startswith("submission/checkpoints/")
+                and info.filename.endswith(".ckpt")
+                and not info.is_dir()
+            ]
+            for info in checkpoint_infos:
+                if info.file_size > MAX_UPLOADED_CHECKPOINT_BYTES:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=(
+                            f"checkpoint {Path(info.filename).name} exceeds the 500 MB limit "
+                            f"({info.file_size} bytes)"
+                        ),
+                    )
+    except BadZipFile as exc:
+        storage_path.unlink(missing_ok=True)
+        raise HTTPException(status_code=400, detail=f"uploaded file is not a valid zip archive: {exc}") from exc
 
 
 def upsert_team(connection: sqlite3.Connection, team_name: str, created_by: str) -> tuple[str, str]:
@@ -410,16 +447,7 @@ async def upload_submission(
     with storage_path.open("wb") as handle:
         copyfileobj(file.file, handle)
     await file.close()
-    try:
-        with ZipFile(storage_path) as archive:
-            if "submission/train.py" not in archive.namelist():
-                raise HTTPException(
-                    status_code=400,
-                    detail="zip must contain submission/train.py",
-                )
-    except BadZipFile as exc:
-        storage_path.unlink(missing_ok=True)
-        raise HTTPException(status_code=400, detail=f"uploaded file is not a valid zip archive: {exc}") from exc
+    validate_submission_archive(storage_path)
     LOGGER.info(
         "upload received submission_id=%s team_name=%s created_by=%s filename=%s stored_at=%s",
         submission_id,
