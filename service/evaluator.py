@@ -7,6 +7,7 @@ import signal
 import subprocess
 import sys
 import tempfile
+import time
 import zipfile
 from pathlib import Path
 from shutil import copyfile
@@ -170,6 +171,7 @@ def run_hidden_test_inference(
     submission_log_path: Path | None,
     cancel_event: Event | None,
 ) -> dict:
+    started = time.perf_counter()
     hidden_output_dir = workspace_dir / "hidden_test_output"
     hidden_output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -244,10 +246,23 @@ def run_hidden_test_inference(
             f"stdout:\n{combined_output}\n"
         )
 
-    scoring = score_split(BUNDLE_ROOT / "test" / "manifest.json", hidden_output_dir / "predictions")
+    prediction_root = hidden_output_dir / f"predictions_{model_name}"
+    normalized_prediction_dir = hidden_output_dir / "predictions"
+    normalized_prediction_dir.mkdir(parents=True, exist_ok=True)
+    for sample in json.loads((BUNDLE_ROOT / "test" / "manifest.json").read_text()).get("samples", []):
+        target_id = sample["target_id"]
+        source = prediction_root / f"{target_id.lower()}_sampled_0.cif"
+        if not source.exists():
+            source = prediction_root / f"{target_id}_sampled_0.cif"
+        if not source.exists():
+            raise RuntimeError(f"hidden test inference produced no CIF output for {target_id}")
+        copyfile(source, normalized_prediction_dir / f"{target_id}_sampled_0.cif")
+
+    scoring = score_split(BUNDLE_ROOT / "test" / "manifest.json", normalized_prediction_dir)
     return {
         "scoring": scoring,
         "stdout": combined_output,
+        "runtime_sec": time.perf_counter() - started,
     }
 
 
@@ -358,6 +373,7 @@ def run_uploaded_submission(
             results["scoring"] = hidden_result["scoring"]
             results["valid"] = bool(hidden_result["scoring"]["valid"])
             combined_output = combined_output + hidden_result["stdout"]
+            results["runtime_sec"] = float(results.get("runtime_sec") or 0.0) + float(hidden_result["runtime_sec"])
         results["stdout"] = combined_output
         results["stderr"] = ""
         results["returncode"] = returncode
